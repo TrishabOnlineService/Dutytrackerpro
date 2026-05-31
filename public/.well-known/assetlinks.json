@@ -1,1 +1,8 @@
-
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.nitaistudio.twa",
+        "sha256_cert_fingerprints": ["3A:6F:0C:70:B4:0E:D9:DD:CD:40:DC:69:EB:11:95:E2:BA:9E:51:8E:46:C4:D0:EC:32:61:A3:BF:52:79:5A:82"]
+      }
+    }]
