@@ -1,77 +1,88 @@
 {
   "name": "Duty Tracker Pro",
-  "short_name": "DutyTrackerPro",
-  "description": "Professional Duty & Attendance Tracker with Salary Reports",
-  "start_url": "/",
-  "scope": "/",
+  "short_name": "DutyTracker",
+  "description": "Track duty hours, manage advances & generate salary reports",
+  "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#000000",
   "background_color": "#050505",
-
+  "theme_color": "#4361ee",
+  "scope": "./",
+  "lang": "en",
+  "categories": ["productivity", "utilities", "business"],
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-
-  "screenshots": [
-    {
-      "src": "/screenshots/home.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Duty Tracker Pro Home"
-    }
-  ],
-
-  "categories": [
-    "business",
-    "productivity",
-    "finance"
-  ],
-
   "shortcuts": [
     {
-      "name": "Mark Attendance",
-      "short_name": "Attendance",
-      "url": "/?action=attendance",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
+      "name": "Mark Today",
+      "short_name": "Today",
+      "description": "Mark today's duty",
+      "url": "./index.html#today",
+      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png", "sizes": "96x96" }]
     },
     {
       "name": "View Reports",
       "short_name": "Reports",
-      "url": "/?action=reports",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
+      "description": "View salary reports",
+      "url": "./index.html#reports",
+      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png", "sizes": "96x96" }]
     }
   ],
-
+  "screenshots": [],
+  "prefer_related_applications": false,
   "related_applications": [
     {
       "platform": "play",
-      "id": "io.github.nitaistudio.twa",
-      "url": "https://play.google.com/store/apps/details?id=io.github.nitaistudio.twa"
+      "url": "https://play.google.com/store/apps/details?id=com.nitaistudio.dutytrackerpro",
+      "id": "com.nitaistudio.dutytrackerpro"
     }
-  ],
-
-  "prefer_related_applications": false
+  ]
 }

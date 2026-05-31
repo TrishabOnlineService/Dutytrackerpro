@@ -7,9 +7,18 @@
     
     <!-- PWA Requirements -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#050505">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Duty Tracker Pro">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Duty Tracker Pro">
+    <meta name="msapplication-TileColor" content="#4361ee">
+    <meta name="msapplication-tap-highlight" content="no">
+    <meta name="description" content="Track duty hours, manage advances & generate salary reports">
+    <!-- PWA Icons -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
     
     <!-- Play Store Detection Meta Tags -->
     <meta name="google-play-app" content="com.nitaistudio.dutytrackerpro">
@@ -356,6 +365,124 @@
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         @keyframes zoomIn { 0% { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* ===== FLUTTER-STYLE ENHANCED ANIMATIONS ===== */
+        @keyframes flutterSlideUp { 0% { opacity:0; transform:translateY(40px) scale(0.96); } 60% { opacity:1; transform:translateY(-4px) scale(1.01); } 100% { opacity:1; transform:translateY(0) scale(1); } }
+        @keyframes flutterSlideDown { 0% { opacity:0; transform:translateY(-30px); } 70% { transform:translateY(4px); } 100% { opacity:1; transform:translateY(0); } }
+        @keyframes flutterSlideRight { 0% { opacity:0; transform:translateX(-40px) scale(0.97); } 70% { opacity:1; transform:translateX(3px) scale(1.01); } 100% { opacity:1; transform:translateX(0) scale(1); } }
+        @keyframes flutterBounceIn { 0% { opacity:0; transform:scale(0.3); } 50% { opacity:0.9; transform:scale(1.08); } 70% { transform:scale(0.95); } 100% { opacity:1; transform:scale(1); } }
+        @keyframes flutterShimmer { 0% { background-position:-200% center; } 100% { background-position:200% center; } }
+        @keyframes flutterRipple { 0% { transform:scale(0); opacity:0.6; } 100% { transform:scale(4); opacity:0; } }
+        @keyframes flutterGlow { 0%,100% { box-shadow:0 0 15px rgba(67,97,238,0.3); } 50% { box-shadow:0 0 35px rgba(67,97,238,0.7), 0 0 60px rgba(76,201,240,0.3); } }
+        @keyframes flutterWave { 0%,100% { transform:rotate(0deg); } 25% { transform:rotate(5deg); } 75% { transform:rotate(-5deg); } }
+        @keyframes flutterFadeScale { 0% { opacity:0; transform:scale(0.85) translateY(10px); } 100% { opacity:1; transform:scale(1) translateY(0); } }
+        @keyframes flutterNavPop { 0% { transform:translateY(0) scale(1); } 40% { transform:translateY(-8px) scale(1.15); } 70% { transform:translateY(2px) scale(0.97); } 100% { transform:translateY(0) scale(1); } }
+        @keyframes flutterCardHover { 0% { transform:translateY(0) scale(1); } 50% { transform:translateY(-3px) scale(1.01); } 100% { transform:translateY(-2px) scale(1.005); } }
+        @keyframes flutterInkSpread { 0% { transform:scale(0); opacity:0.5; border-radius:50%; } 100% { transform:scale(20); opacity:0; border-radius:50%; } }
+        @keyframes flutterPageEnter { 0% { opacity:0; transform:translateX(60px) scale(0.97); } 60% { opacity:1; transform:translateX(-5px) scale(1.005); } 100% { opacity:1; transform:translateX(0) scale(1); } }
+        @keyframes flutterStagger { 0% { opacity:0; transform:translateY(30px); } 100% { opacity:1; transform:translateY(0); } }
+        @keyframes flutterDotBounce { 0%,80%,100% { transform:scale(0.4); opacity:0.3; } 40% { transform:scale(1); opacity:1; } }
+        @keyframes flutterPinPop { 0% { transform:scale(0.8); } 40% { transform:scale(1.25); } 70% { transform:scale(0.95); } 100% { transform:scale(1.1); } }
+        @keyframes flutterSuccessCheck { 0% { stroke-dashoffset:100; } 100% { stroke-dashoffset:0; } }
+        @keyframes flutterParticle { 0% { transform:translateY(0) scale(1); opacity:1; } 100% { transform:translateY(-80px) scale(0); opacity:0; } }
+        @keyframes flutterToastIn { 0% { transform:translateX(-50%) translateY(20px) scale(0.9); opacity:0; } 70% { transform:translateX(-50%) translateY(-4px) scale(1.02); opacity:1; } 100% { transform:translateX(-50%) translateY(0) scale(1); opacity:1; } }
+        @keyframes flutterModalUp { 0% { transform:translateY(100%); } 70% { transform:translateY(-8px); } 100% { transform:translateY(0); } }
+        @keyframes flutterSplashRing { 0% { transform:scale(0.8); opacity:0.8; } 100% { transform:scale(2.5); opacity:0; } }
+        @keyframes flutterCountUp { 0% { transform:translateY(100%); opacity:0; } 100% { transform:translateY(0); opacity:1; } }
+
+        /* Flutter Material Ripple Effect */
+        .flutter-ripple { position:relative; overflow:hidden; }
+        .flutter-ripple::after { content:''; position:absolute; border-radius:50%; background:rgba(255,255,255,0.25); width:20px; height:20px; top:50%; left:50%; transform:translate(-50%,-50%) scale(0); opacity:0; transition:none; pointer-events:none; }
+        .flutter-ripple:active::after { animation:flutterRipple 0.5s ease-out; }
+
+        /* Flutter Ink Effect on Buttons */
+        .btn { position:relative; overflow:hidden; }
+        .btn::before { content:''; position:absolute; top:50%; left:50%; width:0; height:0; background:rgba(255,255,255,0.2); border-radius:50%; transform:translate(-50%,-50%); transition:width 0.4s ease, height 0.4s ease, opacity 0.4s ease; opacity:0; }
+        .btn:active::before { width:300px; height:300px; opacity:1; transition:none; }
+
+        /* Flutter Card Animations */
+        .stat-item, .duty-entry, .advance-item { animation:flutterSlideUp 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+        .stat-item:nth-child(1) { animation-delay:0.05s; }
+        .stat-item:nth-child(2) { animation-delay:0.1s; }
+        .stat-item:nth-child(3) { animation-delay:0.15s; }
+        .stat-item:nth-child(4) { animation-delay:0.2s; }
+
+        /* Flutter Page Transitions */
+        .page { animation:flutterPageEnter 0.35s cubic-bezier(0.25,0.46,0.45,0.94) both !important; }
+
+        /* Flutter Navigation Animation */
+        .nav-btn { transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1) !important; }
+        .nav-btn.active { animation:flutterNavPop 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+        .nav-btn:active { transform:scale(0.88) !important; }
+        .nav-icon { transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .nav-btn.active .nav-icon { transform:translateY(-3px) scale(1.15); }
+
+        /* Flutter Button Tap Effect */
+        .btn:active { transform:scale(0.96) !important; transition:transform 0.1s cubic-bezier(0.34,1.56,0.64,1) !important; }
+        .pin-btn:active { transform:scale(0.88) !important; transition:transform 0.1s cubic-bezier(0.34,1.56,0.64,1) !important; }
+
+        /* Flutter PIN dot animation */
+        .pin-dot.filled { animation:flutterPinPop 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards !important; }
+
+        /* Flutter Modal animation */
+        .modal { animation:flutterModalUp 0.4s cubic-bezier(0.25,0.46,0.45,0.94) both !important; }
+        .confirm-box, .pin-card, .update-content, .maintenance-content { animation:flutterBounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both !important; }
+
+        /* Flutter Toast animation */
+        #toast.show { animation:flutterToastIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards !important; }
+
+        /* Flutter Shimmer Loading */
+        .flutter-shimmer { background:linear-gradient(90deg, var(--card) 25%, rgba(255,255,255,0.06) 50%, var(--card) 75%); background-size:200% auto; animation:flutterShimmer 1.5s linear infinite; border-radius:12px; }
+
+        /* Flutter Glow on active elements */
+        .btn-primary { transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1) !important; }
+        .btn-primary:hover { animation:flutterGlow 2s ease-in-out infinite; transform:translateY(-2px); }
+
+        /* Flutter Stagger list items */
+        .fl-stagger { opacity:0; animation:flutterStagger 0.4s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+        .fl-stagger:nth-child(1){animation-delay:0.05s} .fl-stagger:nth-child(2){animation-delay:0.1s}
+        .fl-stagger:nth-child(3){animation-delay:0.15s} .fl-stagger:nth-child(4){animation-delay:0.2s}
+        .fl-stagger:nth-child(5){animation-delay:0.25s} .fl-stagger:nth-child(6){animation-delay:0.3s}
+
+        /* Flutter Card press effect */
+        .duty-entry:active, .advance-item:active, .stat-item:active { transform:scale(0.97) !important; transition:transform 0.1s ease !important; }
+
+        /* Flutter Loading dots */
+        .flutter-dots span { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--primary); margin:0 3px; animation:flutterDotBounce 1.4s ease-in-out infinite both; }
+        .flutter-dots span:nth-child(1){animation-delay:0s} .flutter-dots span:nth-child(2){animation-delay:0.16s} .flutter-dots span:nth-child(3){animation-delay:0.32s}
+
+        /* Flutter Splash screen rings */
+        .splash-ring { position:absolute; border-radius:50%; border:2px solid rgba(255,255,255,0.15); animation:flutterSplashRing 2s ease-out infinite; }
+        .splash-ring:nth-child(1){width:100px;height:100px;animation-delay:0s}
+        .splash-ring:nth-child(2){width:160px;height:160px;animation-delay:0.4s}
+        .splash-ring:nth-child(3){width:220px;height:220px;animation-delay:0.8s}
+
+        /* Flutter Hero transition for cards */
+        .hero-card { transition:all 0.35s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .hero-card:active { transform:scale(0.96); filter:brightness(1.1); }
+
+        /* Flutter Bottom nav indicator */
+        .nav-btn { position:relative; }
+        .nav-btn::after { content:''; position:absolute; bottom:-2px; left:50%; transform:translateX(-50%) scaleX(0); width:24px; height:3px; background:var(--primary); border-radius:3px; transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .nav-btn.active::after { transform:translateX(-50%) scaleX(1); }
+
+        /* Flutter Scroll smooth */
+        * { scroll-behavior:smooth; }
+        ::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+        /* Flutter Input focus animation */
+        .inp:focus, select:focus, textarea:focus { transform:translateY(-1px); box-shadow:0 8px 25px rgba(67,97,238,0.2) !important; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1) !important; }
+
+        /* Flutter FAB animation */
+        #pwa-install { transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1) !important; }
+        #pwa-install:active { transform:scale(0.92) !important; }
+
+        /* Flutter status chip pop */
+        .status-chip { animation:flutterFadeScale 0.3s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+        /* Flutter Calendar day tap */
+        .cal-day:active { transform:scale(0.85) !important; transition:transform 0.1s cubic-bezier(0.34,1.56,0.64,1) !important; }
+        .cal-day { transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1); }
 
         /* COMPONENTS */
         .btn { width:100%; padding:16px; border:none; border-radius:16px; font-weight:700; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:10px; transition:0.2s; font-size:16px; letter-spacing:0.5px; position: relative; overflow: hidden; }
@@ -2515,6 +2642,110 @@
         
         window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('pwa-install').style.display = 'block'; });
         const pwa = { install: () => { if(deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then((c) => { if(c.outcome==='accepted') document.getElementById('pwa-install').style.display='none'; deferredPrompt = null; }); } } };
+
+        // ===== PWA SERVICE WORKER REGISTRATION =====
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log('✅ Service Worker registered:', reg.scope);
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    showToast('App updated! Refresh to get latest version.');
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => console.log('SW registration failed:', err));
+            });
+        }
+
+        // ===== FLUTTER-STYLE INTERACTION ENHANCEMENTS =====
+        // Ripple effect on all buttons
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn, .pin-btn, .cal-day, .nav-btn');
+            if (!btn) return;
+            const ripple = document.createElement('span');
+            const rect = btn.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            ripple.style.cssText = `position:absolute;border-radius:50%;background:rgba(255,255,255,0.25);width:${size}px;height:${size}px;left:${e.clientX - rect.left - size/2}px;top:${e.clientY - rect.top - size/2}px;transform:scale(0);animation:flutterInkSpread 0.5s ease-out forwards;pointer-events:none;z-index:999;`;
+            btn.style.overflow = 'hidden';
+            btn.style.position = 'relative';
+            btn.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        });
+
+        // Flutter stagger animation for dynamic lists
+        function flutterStaggerList(container) {
+            if (!container) return;
+            const items = container.querySelectorAll('.duty-entry, .advance-item, .stat-item');
+            items.forEach((item, i) => {
+                item.style.opacity = '0';
+                item.style.transform = 'translateY(30px)';
+                setTimeout(() => {
+                    item.style.transition = 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, i * 60);
+            });
+        }
+
+        // Override showToast for flutter animation
+        const _origShowToast = window.showToast;
+        window.showToast = function(msg, duration) {
+            const t = document.getElementById('toast');
+            if (t) {
+                t.innerText = msg;
+                t.classList.remove('show');
+                void t.offsetWidth;
+                t.classList.add('show');
+                setTimeout(() => t.classList.remove('show'), duration || 3000);
+            }
+        };
+
+        // Flutter hero transition for page open
+        const _origOpenPage = window.ui ? null : null;
+        function addFlutterPageTransition(pageId) {
+            const page = document.getElementById(pageId);
+            if (page) {
+                page.style.animation = 'none';
+                void page.offsetWidth;
+                page.style.animation = 'flutterPageEnter 0.35s cubic-bezier(0.25,0.46,0.45,0.94) both';
+            }
+        }
+
+        // Haptic feedback simulation (visual)
+        function flutterHaptic(el) {
+            if (!el) return;
+            el.style.transform = 'scale(0.95)';
+            setTimeout(() => { el.style.transform = ''; }, 150);
+        }
+
+        // Flutter scroll reveal
+        function initScrollReveal() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+            document.querySelectorAll('.stat-item, .duty-entry, .advance-item').forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(20px)';
+                el.style.transition = 'opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+                observer.observe(el);
+            });
+        }
+
+        // Init on DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initScrollReveal, 800);
+        });
 
         const legal = {
             show: (t) => { 
