@@ -1,9 +1,9 @@
 // ===== DUTY TRACKER PRO - SERVICE WORKER =====
 // Version: 2.0.0 | Flutter-style PWA
 
-const CACHE_NAME = 'duty-tracker-pro-v2';
-const STATIC_CACHE = 'dtp-static-v2';
-const DYNAMIC_CACHE = 'dtp-dynamic-v2';
+const CACHE_NAME = 'duty-tracker-pro-v3';
+const STATIC_CACHE = 'dtp-static-v3';
+const DYNAMIC_CACHE = 'dtp-dynamic-v3';
 
 // Core files to cache immediately
 const STATIC_ASSETS = [
