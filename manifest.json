@@ -3,76 +3,75 @@
   "short_name": "DutyTrackerPro",
   "description": "Professional Duty & Attendance Tracker with Salary Reports",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "theme_color": "#000000",
   "background_color": "#050505",
-  "orientation": "portrait",
-  "scope": "/",
-  "categories": ["business", "productivity", "finance"],
+
   "icons": [
     {
-      "src": "https://i.ibb.co/20bDvvLB/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://i.ibb.co/20bDvvLB/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "https://i.ibb.co/20bDvvLB/logo.png",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "https://i.ibb.co/20bDvvLB/logo.png",
-      "sizes": "192x192",
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
+
   "screenshots": [
     {
-      "src": "https://i.ibb.co/20bDvvLB/logo.png",
+      "src": "/screenshots/home.png",
       "sizes": "1280x720",
       "type": "image/png",
-      "platform": "wide",
-      "label": "Home Screen"
+      "form_factor": "wide",
+      "label": "Duty Tracker Pro Home"
     }
   ],
+
+  "categories": [
+    "business",
+    "productivity",
+    "finance"
+  ],
+
   "shortcuts": [
     {
       "name": "Mark Attendance",
       "short_name": "Attendance",
-      "description": "Quickly mark today's duty",
       "url": "/?action=attendance",
-      "icons": [{ "src": "https://i.ibb.co/20bDvvLB/logo.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "View Reports",
       "short_name": "Reports",
-      "description": "Check salary reports",
       "url": "/?action=reports",
-      "icons": [{ "src": "https://i.ibb.co/20bDvvLB/logo.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ],
+
   "related_applications": [
     {
       "platform": "play",
-      "url": "https://play.google.com/store/apps/details?id=com.nitaistudio.dutytrackerpro",
-      "id": "io.github.nitaistudio.twa"
+      "id": "io.github.nitaistudio.twa",
+      "url": "https://play.google.com/store/apps/details?id=io.github.nitaistudio.twa"
     }
   ],
-  "prefer_related_applications": false,
-  "launch_handler": {
-    "route_to": "auto",
-    "navigate_existing_client": "always"
-  },
-  "edge_side_panel": {
-    "preferred_width": 400
-  }
+
+  "prefer_related_applications": false
 }
