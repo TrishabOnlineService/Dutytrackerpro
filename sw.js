@@ -1,7 +1,7 @@
 // Duty Tracker Pro - Service Worker
-// Version: 3.3.0
+// Version: 4.3.0
 // Cache Name with versioning
-const CACHE_NAME = 'duty-tracker-pro-v3.3.0';
+const CACHE_NAME = 'duty-tracker-pro-v4.3.0';
 const RUNTIME_CACHE = 'duty-tracker-pro-runtime-v1';
 
 // Assets to cache on install (Core App Shell)
