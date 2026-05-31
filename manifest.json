@@ -37,7 +37,7 @@
   ],
   "screenshots": [
     {
-      "src": "https://via.placeholder.com/1280x720/4361ee/ffffff?text=Duty+Tracker+Pro",
+      "src": "https://i.ibb.co/20bDvvLB/logo.png",
       "sizes": "1280x720",
       "type": "image/png",
       "platform": "wide",
@@ -50,21 +50,21 @@
       "short_name": "Attendance",
       "description": "Quickly mark today's duty",
       "url": "/?action=attendance",
-      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png", "sizes": "96x96" }]
+      "icons": [{ "src": "https://i.ibb.co/20bDvvLB/logo.png", "sizes": "96x96" }]
     },
     {
       "name": "View Reports",
       "short_name": "Reports",
       "description": "Check salary reports",
       "url": "/?action=reports",
-      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png", "sizes": "96x96" }]
+      "icons": [{ "src": "https://i.ibb.co/20bDvvLB/logo.png", "sizes": "96x96" }]
     }
   ],
   "related_applications": [
     {
       "platform": "play",
       "url": "https://play.google.com/store/apps/details?id=com.nitaistudio.dutytrackerpro",
-      "id": "com.nitaistudio.dutytrackerpro"
+      "id": "io.github.nitaistudio.twa"
     }
   ],
   "prefer_related_applications": false,
