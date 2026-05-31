@@ -1,9 +1,9 @@
 // ===== DUTY TRACKER PRO - SERVICE WORKER =====
 // Version: 2.0.0 | Flutter-style PWA
 
-const CACHE_NAME = 'duty-tracker-pro-v2';
-const STATIC_CACHE = 'dtp-static-v2';
-const DYNAMIC_CACHE = 'dtp-dynamic-v2';
+const CACHE_NAME = 'duty-tracker-pro-v4';
+const STATIC_CACHE = 'dtp-static-v4';
+const DYNAMIC_CACHE = 'dtp-dynamic-v4';
 
 // Core files to cache immediately
 const STATIC_ASSETS = [
@@ -19,7 +19,7 @@ const STATIC_ASSETS = [
 
 // ===== INSTALL EVENT =====
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Duty Tracker Pro v2...');
+  console.log('[SW] Installing Duty Tracker Pro v4...');
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       console.log('[SW] Caching static assets');
@@ -32,7 +32,7 @@ self.addEventListener('install', (event) => {
 
 // ===== ACTIVATE EVENT =====
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating v2...');
+  console.log('[SW] Activating v4...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -225,4 +225,4 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-console.log('[SW] Duty Tracker Pro Service Worker v2.0 loaded ✅');
+console.log('[SW] Duty Tracker Pro Service Worker v4.0 loaded ✅');
