@@ -1,6 +1,6 @@
 {
   "name": "Duty Tracker Pro",
-  "short_name": "DutyPro",
+  "short_name": "DutyTrackerPro",
   "description": "Professional Duty & Attendance Tracker with Salary Reports",
   "start_url": "/",
   "display": "standalone",
