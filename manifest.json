@@ -2,45 +2,16 @@
   "name": "Duty Tracker Pro",
   "short_name": "DutyTracker",
   "description": "Track duty hours, manage advances & generate salary reports",
-  "start_url": "./index.html",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#050505",
   "theme_color": "#4361ee",
-  "scope": "./",
   "lang": "en",
   "categories": ["productivity", "utilities", "business"],
+
   "icons": [
-    {
-      "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any"
-    },
     {
       "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png",
       "sizes": "192x192",
@@ -49,40 +20,26 @@
     },
     {
       "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
+
   "shortcuts": [
     {
       "name": "Mark Today",
       "short_name": "Today",
       "description": "Mark today's duty",
-      "url": "./index.html#today",
-      "icons": [{ "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png", "sizes": "96x96" }]
+      "url": "/#today"
     },
     {
       "name": "View Reports",
       "short_name": "Reports",
       "description": "View salary reports",
-      "url": "./index.html#reports",
-      "icons": [{ "src": "https://i.ibb.co/Lhz9g8nM/icon-512.png", "sizes": "96x96" }]
+      "url": "/#reports"
     }
   ],
-  "screenshots": [],
-  "prefer_related_applications": false,
-  "related_applications": [
-    {
-      "platform": "play",
-      "url": "https://play.google.com/store/apps/details?id=com.nitaistudio.dutytrackerpro",
-      "id": "io.github.nitaistudio.twa"
-    }
-  ]
+
+  "prefer_related_applications": false
 }
