@@ -1214,7 +1214,34 @@
             display: block;
         }
     </style>
-    <script src="https://5gvci.com/act/files/tag.min.js?z=11128285" data-cfasync="false" async></script>
+    <script>
+        // Monetag ads — শুধু non-premium users এর জন্য
+        window.__adsLoaded = false;
+        function loadMonetag() {
+            if (window.__adsLoaded) return;
+            window.__adsLoaded = true;
+            var s1 = document.createElement('script');
+            s1.src = 'https://5gvci.com/act/files/tag.min.js?z=11128285';
+            s1.setAttribute('data-cfasync', 'false');
+            s1.async = true;
+            document.head.appendChild(s1);
+            (function(s){s.dataset.zone='11128287';s.src='https://nap5k.com/tag.min.js';})
+            ([document.documentElement,document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+            (function(s){s.dataset.zone='11128288';s.src='https://n6wxm.com/vignette.min.js';})
+            ([document.documentElement,document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+        }
+        function initAds() {
+            try {
+                var subExp = 0;
+                try { subExp = parseInt(localStorage.getItem('subExp') || '0'); } catch(e) {}
+                if (!subExp || subExp <= Date.now()) {
+                    loadMonetag();
+                }
+            } catch(e) {
+                loadMonetag();
+            }
+        }
+    </script>
 </head>
 <body>
 
@@ -3166,6 +3193,12 @@
                             s.sub = sub.active && sub.expiryDate > Date.now() ? sub.expiryDate : Date.now() - 1;
                         }
                         checkPremiumAccess();
+                        // Premium হলে ads বন্ধ, না হলে চালু
+                        if (!isPremium()) {
+                            loadMonetag();
+                        } else {
+                            window.__adsLoaded = false; // reset so if sub expires ads can reload
+                        }
                     });
                     checkPremiumAccess();
                     if(document.getElementById('promo-screen').style.display !== 'flex' && document.getElementById('reward-popup').style.display !== 'flex' && s.pin && !pinVerified) { setTimeout(() => { document.getElementById('main-app').style.display = 'none'; pin.init('verify'); }, 500); } else if(!s.pin) { document.getElementById('main-app').style.display = 'flex'; }
@@ -4724,7 +4757,33 @@
             }
         };
     </script>
-    <script>(function(s){s.dataset.zone='11128287',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
-    <script>(function(s){s.dataset.zone='11128288',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+    <script>
+        // Firebase থেকে real-time premium status verify করে ads load করা হয়
+        (function() {
+            function runAdsCheck() {
+                // s.uid available মানে Firebase auth হয়েছে
+                if (typeof s !== 'undefined' && s.uid && typeof db !== 'undefined') {
+                    db.ref('u/' + s.uid + '/subExp').once('value', function(snap) {
+                        var serverExp = snap.val();
+                        var premiumActive = serverExp && serverExp > Date.now();
+                        if (premiumActive) {
+                            // Premium user — subExp localStorage এ cache করো (fast path next load)
+                            try { localStorage.setItem('subExp', serverExp); } catch(e) {}
+                            // Ads চলবে না
+                        } else {
+                            // Non-premium — ads load করো
+                            try { localStorage.removeItem('subExp'); } catch(e) {}
+                            loadMonetag();
+                        }
+                    });
+                } else {
+                    // Auth হয়নি বা guest — ads চলবে
+                    loadMonetag();
+                }
+            }
+            // DOM ready হওয়ার পর 3 সেকেন্ড অপেক্ষা করো Firebase auth settle হতে
+            setTimeout(runAdsCheck, 3000);
+        })();
+    </script>
 </body>
 </html>
