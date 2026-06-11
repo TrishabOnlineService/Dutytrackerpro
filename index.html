@@ -15,7 +15,6 @@
     <meta name="application-name" content="Duty Tracker Pro">
     <meta name="description" content="Track duty, manage advances & salary reports">
     <meta name="monetag" content="d17e3b3cc4e5f388535e5221c3aacf2e">
-    <meta name="monetag" content="ca60e1cd054ca1e5718a3dc523476b5b">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
     
@@ -1216,6 +1215,52 @@
         }
     </style>
     <script>
+        // ================================================================
+        // TWA GOOGLE PLAY BILLING SHIM
+        // ================================================================
+        // PWABuilder TWA injects Digital Goods API into window.
+        // This shim ensures gpDetectEnvironment() correctly identifies
+        // the TWA context and enables Tier 2 billing.
+        //
+        // How it works:
+        //   1. PWABuilder wraps your PWA in a TWA WebView
+        //   2. Chrome in TWA exposes window.getDigitalGoodsService
+        //   3. Our gpDetectEnvironment() calls it with 'https://play.google.com/billing'
+        //   4. Returns a DigitalGoodsService object → Tier 2 billing active
+        //
+        // If window.AndroidBilling exists (custom native bridge), Tier 1 is used.
+        // ================================================================
+        (function() {
+            // Log TWA context on load for debugging
+            const ua = navigator.userAgent;
+            const isAndroid  = /Android/.test(ua);
+            const isWebView  = /wv/.test(ua);
+            const hasDGA     = 'getDigitalGoodsService' in window;
+            const twaRef     = document.referrer && document.referrer.startsWith('android-app://');
+            console.log('[TWA-SHIM] Android:', isAndroid, '| WebView:', isWebView, '| DGA:', hasDGA, '| TWA-referrer:', twaRef);
+
+            // If we are in TWA but Digital Goods API not yet available,
+            // wait for it (Chrome loads it async in some TWA versions)
+            if (isAndroid && isWebView && !hasDGA) {
+                let attempts = 0;
+                const poll = setInterval(() => {
+                    attempts++;
+                    if ('getDigitalGoodsService' in window) {
+                        console.log('[TWA-SHIM] DGA became available after', attempts, 'polls');
+                        clearInterval(poll);
+                        // Re-init billing if paymentSystem already initialized
+                        if (typeof gpDetectEnvironment === 'function' && typeof paymentSystem !== 'undefined') {
+                            gpDetectEnvironment().then(available => {
+                                if (available) paymentSystem.switchTo('googleplay');
+                            });
+                        }
+                    }
+                    if (attempts >= 20) clearInterval(poll); // stop after 10s
+                }, 500);
+            }
+        })();
+    </script>
+    <script>
         // Monetag ads — শুধু non-premium users এর জন্য
         window.__adsLoaded = false;
         function loadMonetag() {
@@ -2155,7 +2200,7 @@
         const db = firebase.database();
         const RZP_KEY = "rzp_live_Rz7kQ4RAloCWGp";
         const IMG_API_KEY = "c762b5315ee9263c36ed04156b0ff758"; 
-        const ONESIGNAL_APP_ID = "22bc8426-5665-4e29-b459-4cc58bf32aea";
+        const ONESIGNAL_APP_ID = "757c2d8a-b121-4498-bc66-5d71d68a9009";
         
         // PayPal Subscription Links
         const PAYPAL_MONTHLY_URL = "https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-88K63194J33940531NHJKNBY";
@@ -2200,104 +2245,144 @@
         let pinCallback = null;
         let pinVerified = false;
         
-        // ============================================================
-        // GOOGLE PLAY BILLING — PRODUCTION IMPLEMENTATION
-        // Compatible with: TWA / PWA Builder / AAB / Play Store
-        // Uses Digital Goods API (w3c) + Payment Request API fallback
-        // ============================================================
+        // ================================================================
+        // GOOGLE PLAY BILLING — PRODUCTION IMPLEMENTATION v3
+        // ================================================================
+        // Architecture (3-tier, in priority order):
+        //
+        //  Tier 1 — AndroidBilling JS Bridge
+        //    PWABuilder / Bubblewrap inject window.AndroidBilling into TWA.
+        //    This is the MOST reliable path for Play Store APKs.
+        //    Bridge methods: purchase(sku,cb), queryPurchases(cb), getSkuDetails(skus,cb)
+        //
+        //  Tier 2 — W3C Digital Goods API
+        //    Available in Chrome on Android when running inside TWA context.
+        //    Uses getDigitalGoodsService + PaymentRequest API.
+        //
+        //  Tier 3 — Custom Payments (Razorpay / PayPal / Binance)
+        //    Shown only when NOT in TWA (browser, iOS, desktop, sideloaded APK).
+        //    Completely separate from Google Play Billing.
+        //
+        // Google Play policy: In-app digital content sold through Play Store
+        // MUST use Google Play Billing. Custom payments only for non-Play distribution.
+        // ================================================================
 
-        // Payment System State
-        let currentPaymentSystem = 'custom'; // 'custom' or 'googleplay'
-        let _gpBillingService = null;          // cached getDigitalGoodsService instance
-        let _gpAvailable = false;              // true once Play Billing confirmed available
+        // ── State ───────────────────────────────────────────────────────
+        let currentPaymentSystem = 'custom';
+        let _gpTier              = 0;    // 0=none, 1=AndroidBridge, 2=DigitalGoodsAPI
+        let _gpBillingService    = null; // W3C Digital Goods Service (Tier 2)
+        let _gpAvailable         = false;
 
-        // Map product IDs → plan metadata
+        // ── Product IDs — must EXACTLY match Google Play Console ────────
         const GP_PRODUCTS = {
-            'premium_monthly':  { days: 30,  label: 'Monthly'  },
-            'premium_6months':  { days: 180, label: '6 Months' },
-            'premium_yearly':   { days: 365, label: 'Yearly'   }
+            'premium_monthly': { days: 30,  label: 'Monthly'  },
+            'premium_6month':  { days: 180, label: '6 Months' },
+            'premium_yearly':  { days: 365, label: 'Yearly'   }
         };
-
-        // Map UI plan keys → Play product IDs
         const GP_PLAN_MAP = {
-            'monthly':  'premium_monthly',
-            '6months':  'premium_6months',
-            'yearly':   'premium_yearly'
+            'monthly': 'premium_monthly',
+            '6months': 'premium_6month',
+            'yearly':  'premium_yearly'
         };
 
-        // ── Install-source detection ──────────────────────────────────
-        async function detectInstallSource() {
-            try {
-                if ('getInstalledRelatedApps' in navigator) {
-                    const apps = await navigator.getInstalledRelatedApps();
-                    if (apps && apps.length > 0) return 'play';
-                }
-                // TWA sets document.referrer to the Play-verified origin
-                if (document.referrer && document.referrer.includes('android-app://')) return 'play';
-                // Check navigator.userAgent for TWA marker set by Bubblewrap / PWA Builder
-                if (/wv/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)) {
-                    // Could be TWA; try Digital Goods API as final test
-                    if ('getDigitalGoodsService' in window) return 'play';
-                }
-            } catch (e) { /* ignore */ }
-            return 'web';
-        }
-
-        // ── Initialize Digital Goods Service (Play Billing) ───────────
-        async function initGooglePlayBilling() {
-            if (!('getDigitalGoodsService' in window)) return false;
-            try {
-                _gpBillingService = await window.getDigitalGoodsService(
-                    'https://play.google.com/billing'
-                );
-                _gpAvailable = !!_gpBillingService;
-                return _gpAvailable;
-            } catch (e) {
-                _gpAvailable = false;
-                return false;
-            }
-        }
-
-        // ── Fetch SKU details from Play Console ───────────────────────
-        async function gpGetSkuDetails(productIds) {
-            if (!_gpBillingService) return null;
-            try {
-                return await _gpBillingService.getDetails(productIds);
-            } catch (e) {
-                return null;
-            }
-        }
-
-        // ── Check existing entitlements (restore) ─────────────────────
-        async function gpListPurchases() {
-            if (!_gpBillingService) return [];
-            try {
-                return await _gpBillingService.listPurchases();
-            } catch (e) {
-                return [];
-            }
-        }
-
-        // ── Acknowledge / consume a purchase token ────────────────────
-        async function gpAcknowledgePurchase(purchaseToken) {
-            if (!_gpBillingService) return false;
-            try {
-                await _gpBillingService.acknowledge(purchaseToken, 'onetime');
+        // ── Environment detection ────────────────────────────────────────
+        // Determines which billing tier is available before showing any UI.
+        async function gpDetectEnvironment() {
+            // Tier 1: AndroidBilling JS bridge (injected by PWABuilder/Bubblewrap into TWA WebView)
+            if (typeof window.AndroidBilling !== 'undefined' &&
+                typeof window.AndroidBilling.purchase === 'function') {
+                _gpTier      = 1;
+                _gpAvailable = true;
+                console.log('[GP] Tier 1: AndroidBilling JS bridge detected');
                 return true;
-            } catch (e) {
-                return false;
             }
+            // Tier 2: W3C Digital Goods API
+            if ('getDigitalGoodsService' in window) {
+                try {
+                    _gpBillingService = await window.getDigitalGoodsService(
+                        'https://play.google.com/billing'
+                    );
+                    if (_gpBillingService) {
+                        _gpTier      = 2;
+                        _gpAvailable = true;
+                        console.log('[GP] Tier 2: Digital Goods API ready');
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('[GP] Digital Goods API failed:', e.message);
+                }
+            }
+            // Not in TWA / Play context
+            _gpTier      = 0;
+            _gpAvailable = false;
+            console.log('[GP] No Play Billing — using custom payments');
+            return false;
         }
 
-        // ── Write subscription record to Firebase ─────────────────────
+        // ── SKU details ──────────────────────────────────────────────────
+        async function gpGetSkuDetails(productIds) {
+            try {
+                if (_gpTier === 1 && window.AndroidBilling) {
+                    return new Promise((resolve) => {
+                        const cb = '_gpSku' + Date.now();
+                        window[cb] = (json) => { delete window[cb]; try { resolve(JSON.parse(json)); } catch(e) { resolve(null); } };
+                        window.AndroidBilling.getSkuDetails(JSON.stringify(productIds), cb);
+                        setTimeout(() => { if (window[cb]) { delete window[cb]; resolve(null); } }, 6000);
+                    });
+                }
+                if (_gpTier === 2 && _gpBillingService) {
+                    return await _gpBillingService.getDetails(productIds);
+                }
+            } catch(e) { console.warn('[GP] getSkuDetails:', e.message); }
+            return null;
+        }
+
+        // ── List current purchases / entitlements ────────────────────────
+        async function gpListPurchases() {
+            try {
+                if (_gpTier === 1 && window.AndroidBilling) {
+                    return new Promise((resolve) => {
+                        const cb = '_gpList' + Date.now();
+                        window[cb] = (json) => { delete window[cb]; try { resolve(JSON.parse(json) || []); } catch(e) { resolve([]); } };
+                        window.AndroidBilling.queryPurchases(cb);
+                        setTimeout(() => { if (window[cb]) { delete window[cb]; resolve([]); } }, 6000);
+                    });
+                }
+                if (_gpTier === 2 && _gpBillingService) {
+                    return (await _gpBillingService.listPurchases()) || [];
+                }
+            } catch(e) { console.warn('[GP] listPurchases:', e.message); }
+            return [];
+        }
+
+        // ── Acknowledge (Play policy: must ack within 3 days or auto-refund) ──
+        async function gpAcknowledgePurchase(purchaseToken) {
+            try {
+                if (_gpTier === 1 && window.AndroidBilling) {
+                    return new Promise((resolve) => {
+                        const cb = '_gpAck' + Date.now();
+                        window[cb] = (r) => { delete window[cb]; resolve(r === 'true' || r === true); };
+                        window.AndroidBilling.acknowledgePurchase(purchaseToken, cb);
+                        setTimeout(() => { if (window[cb]) { delete window[cb]; resolve(false); } }, 6000);
+                    });
+                }
+                if (_gpTier === 2 && _gpBillingService) {
+                    await _gpBillingService.acknowledge(purchaseToken, 'repeatable');
+                    return true;
+                }
+            } catch(e) { console.warn('[GP] acknowledge:', e.message); }
+            return false;
+        }
+
+        // ── Write subscription to Firebase ───────────────────────────────
         async function gpSaveSubscriptionToFirebase(uid, productId, purchaseToken, purchaseTimeMs) {
             if (!uid) return;
             const meta = GP_PRODUCTS[productId];
             if (!meta) return;
-            const now = purchaseTimeMs || Date.now();
+            const now      = purchaseTimeMs || Date.now();
             const expiryMs = now + (meta.days * 86400000);
             const userName = (s.profile && s.profile.name) ? s.profile.name : '';
-            const record = {
+            const record   = {
                 productId:     productId,
                 purchaseToken: purchaseToken,
                 purchaseDate:  now,
@@ -2312,258 +2397,230 @@
             const updates = {};
             updates[`users/${uid}/subscription`]      = record;
             updates[`u/${uid}/subExp`]                = expiryMs;
-            const userName2 = (s.profile && s.profile.name) ? s.profile.name : '';
             updates[`u/${uid}/history/${Date.now()}`] = {
-                amount:        0,
-                currency:      'GooglePlay',
-                date:          now,
-                method:        'Google Play Billing',
-                productId:     productId,
-                purchaseToken: purchaseToken,
-                plan:          meta.label,
-                userName:      userName2
+                amount: 0, currency: 'GooglePlay', date: now,
+                method: 'Google Play Billing', productId, purchaseToken,
+                plan: meta.label, userName
             };
             await db.ref().update(updates);
-            // Mirror to admin notifications
-            const notifName = (s.profile && s.profile.name) ? s.profile.name : uid;
             db.ref('adminNotifications/all').push({
-                title:     'New Google Play Purchase',
-                body:      `${notifName} (${uid}) purchased ${meta.label} (${productId})`,
-                userId:    uid,
-                userName:  notifName,
-                timestamp: Date.now(),
-                type:      'googleplay_purchase'
+                title: 'New Google Play Purchase',
+                body:  `${userName || uid} (${uid}) purchased ${meta.label} (${productId})`,
+                userId: uid, userName: userName || uid,
+                timestamp: Date.now(), type: 'googleplay_purchase'
             });
+            console.log('[GP] Firebase saved:', productId, 'exp:', new Date(expiryMs).toLocaleDateString());
         }
 
-        // ── Verify purchase via Firebase (anti-tamper) ─────────────────
-        // The definitive source of truth is Firebase, NOT localStorage.
-        // Premium status is always read from s.sub which comes from Firebase.
+        // ── Verify purchase and activate premium ─────────────────────────
+        // Firebase = single source of truth. localStorage never trusted.
         async function gpVerifyAndActivate(uid, purchase) {
             if (!uid || !purchase) return false;
-            const { itemId, purchaseToken, purchaseTime } = purchase;
-            if (!itemId || !purchaseToken) return false;
-
-            // Validate productId is a known product
-            if (!GP_PRODUCTS[itemId]) {
-                console.warn('GP: Unknown product', itemId);
-                return false;
-            }
-
-            // Check if this token was already processed (idempotency)
-            const existing = await db.ref(`users/${uid}/subscription`).once('value');
-            const existingData = existing.val();
-            if (existingData && existingData.purchaseToken === purchaseToken && existingData.active) {
-                // Already recorded — ensure subExp is correct
-                if (existingData.expiryDate > Date.now()) {
-                    await db.ref(`u/${uid}/subExp`).set(existingData.expiryDate);
+            const itemId  = purchase.itemId || purchase.productId || purchase.sku || null;
+            const token   = purchase.purchaseToken || purchase.token || null;
+            const pTime   = purchase.purchaseTime  || purchase.purchaseTimeMillis || Date.now();
+            if (!itemId || !token) { console.warn('[GP] Missing itemId/token', purchase); return false; }
+            if (!GP_PRODUCTS[itemId]) { console.warn('[GP] Unknown product:', itemId); return false; }
+            // Idempotency: skip if same token already active
+            try {
+                const snap = await db.ref(`users/${uid}/subscription`).once('value');
+                const ex   = snap.val();
+                if (ex && ex.purchaseToken === token && ex.active && ex.expiryDate > Date.now()) {
+                    await db.ref(`u/${uid}/subExp`).set(ex.expiryDate);
+                    console.log('[GP] Idempotent — token already active');
+                    return true;
                 }
-                return true;
-            }
-
-            // Acknowledge purchase (required by Play Billing policy)
-            const acknowledged = await gpAcknowledgePurchase(purchaseToken);
-            if (!acknowledged) {
-                // Non-fatal: still save; Play will re-deliver unacknowledged tokens
-                console.warn('GP: Acknowledge failed, proceeding anyway');
-            }
-
-            await gpSaveSubscriptionToFirebase(uid, itemId, purchaseToken, purchaseTime || Date.now());
+            } catch(e) { /* non-fatal */ }
+            await gpAcknowledgePurchase(token);
+            await gpSaveSubscriptionToFirebase(uid, itemId, token, pTime);
             return true;
         }
 
-        // ── Restore Purchases ─────────────────────────────────────────
-        async function gpRestorePurchases() {
-            if (!s.uid) { showToast("Please log in first"); return; }
-            showToast("Restoring purchases…");
-            try {
-                const available = await initGooglePlayBilling();
-                if (!available) {
-                    showToast("Google Play not available on this device");
-                    return;
-                }
-                const purchases = await gpListPurchases();
-                if (!purchases || purchases.length === 0) {
-                    showToast("No active Google Play subscriptions found");
-                    return;
-                }
-                let restored = false;
-                for (const purchase of purchases) {
-                    const ok = await gpVerifyAndActivate(s.uid, purchase);
-                    if (ok) restored = true;
-                }
-                if (restored) {
-                    showToast("✅ Subscription Restored!");
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    showToast("No valid subscription found to restore");
-                }
-            } catch (e) {
-                showToast("Restore failed: " + (e.message || 'Unknown error'));
-            }
-        }
-
-        // ── Check & enforce subscription expiry from Firebase ─────────
+        // ── Check & enforce expiry from Firebase ─────────────────────────
         async function gpCheckSubscriptionStatus(uid) {
             if (!uid) return;
             try {
                 const snap = await db.ref(`users/${uid}/subscription`).once('value');
-                const sub = snap.val();
+                const sub  = snap.val();
                 if (!sub) return;
                 const now = Date.now();
                 if (sub.active && sub.expiryDate < now) {
-                    // Expired — lock premium
                     await db.ref(`users/${uid}/subscription/active`).set(false);
                     await db.ref(`u/${uid}/subExp`).set(sub.expiryDate);
+                    console.log('[GP] Expired — locked');
                 } else if (sub.active && sub.expiryDate > now) {
-                    // Still valid — ensure subExp is synced
                     await db.ref(`u/${uid}/subExp`).set(sub.expiryDate);
+                    console.log('[GP] Valid until:', new Date(sub.expiryDate).toLocaleDateString());
                 }
-            } catch (e) { /* silent */ }
+            } catch(e) { console.warn('[GP] Status check:', e.message); }
         }
 
-        // ── Initiate Play Billing Purchase via Payment Request API ────
-        async function gpInitiatePurchase(productId) {
-            if (!s.uid) { showToast("Please log in first"); return; }
-            const meta = GP_PRODUCTS[productId];
-            if (!meta) return;
-
+        // ── Silent restore on launch ──────────────────────────────────────
+        async function gpSilentRestoreOnLaunch() {
+            if (!s.uid || !_gpAvailable) return;
             try {
-                // Ensure billing service is ready
-                const available = await initGooglePlayBilling();
-                if (!available) {
-                    showToast("Google Play Billing not available. Please install from Play Store.");
-                    return;
+                const purchases = await gpListPurchases();
+                if (!purchases || !purchases.length) return;
+                for (const p of purchases) {
+                    const id = p.itemId || p.productId || p.sku;
+                    if (id && GP_PRODUCTS[id]) await gpVerifyAndActivate(s.uid, p);
                 }
+                console.log('[GP] Silent restore done');
+            } catch(e) { console.warn('[GP] Silent restore:', e.message); }
+        }
 
-                // Fetch SKU details (price, title, description) from Play Console
-                const details = await gpGetSkuDetails([productId]);
-                if (!details || details.length === 0) {
-                    showToast("Product not found. Please check your Play Console configuration.");
-                    return;
-                }
-
-                const sku = details[0];
-
-                // Build Payment Request using Digital Goods API method data
-                const methodData = [{
-                    supportedMethods: 'https://play.google.com/billing',
-                    data: { sku: productId }
-                }];
-
-                const paymentDetails = {
-                    total: {
-                        label: `Duty Tracker Pro — ${meta.label}`,
-                        amount: {
-                            currency: sku.price?.currency || 'INR',
-                            value:    sku.price?.value    || '0'
+        // ── Tier 1: Purchase via AndroidBilling bridge ───────────────────
+        async function gpPurchaseViaBridge(productId) {
+            return new Promise((resolve, reject) => {
+                const cb = '_gpBuy' + Date.now();
+                window[cb] = (resultJson) => {
+                    delete window[cb];
+                    try {
+                        const r = JSON.parse(resultJson);
+                        console.log('[GP] Bridge result:', r);
+                        if (r.responseCode === 0 || r.success === true) {
+                            resolve({ ok: true, itemId: r.productId || r.sku || productId, purchaseToken: r.purchaseToken || r.token, purchaseTime: r.purchaseTime || Date.now() });
+                        } else if (r.responseCode === 1) {
+                            resolve({ ok: false, error: 'cancelled' });
+                        } else if (r.responseCode === 7) {
+                            resolve({ ok: false, error: 'already_owned' });
+                        } else {
+                            resolve({ ok: false, error: r.debugMessage || 'unknown', code: r.responseCode });
                         }
-                    }
+                    } catch(e) { reject(new Error('Bridge parse error: ' + e.message)); }
                 };
+                window.AndroidBilling.purchase(productId, cb);
+                // 60s timeout — user may be filling Play Store payment UI
+                setTimeout(() => { if (window[cb]) { delete window[cb]; reject(new Error('Purchase timed out')); } }, 60000);
+            });
+        }
 
-                showToast("Opening Google Play…");
-                const request = new PaymentRequest(methodData, paymentDetails);
-                const response = await request.show();
+        // ── Tier 2: Purchase via Digital Goods API + PaymentRequest ─────
+        async function gpPurchaseViaDigitalGoods(productId, meta) {
+            const details = await gpGetSkuDetails([productId]);
+            const sku     = details && details[0] ? details[0] : null;
+            const req     = new PaymentRequest(
+                [{ supportedMethods: 'https://play.google.com/billing', data: { sku: productId } }],
+                { total: { label: 'Duty Tracker Pro — ' + meta.label, amount: { currency: (sku && sku.price && sku.price.currency) || 'INR', value: (sku && sku.price && sku.price.value) || '0' } } }
+            );
+            const canPay = await req.canMakePayment();
+            if (!canPay) throw Object.assign(new Error('Google Play payment unavailable. Sign into Play Store and try again.'), { name: 'NotSupportedError' });
+            const response = await req.show();
+            if (!response) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
+            const token = (response.details && (response.details.purchaseToken || response.details.token)) || null;
+            if (!token) { await response.complete('fail'); throw new Error('No purchase token received. Contact support.'); }
+            return { response, token, time: (response.details && response.details.purchaseTime) || Date.now() };
+        }
 
-                if (!response) {
-                    showToast("Purchase cancelled");
+        // ── Manual Restore (user-triggered) ──────────────────────────────
+        async function gpRestorePurchases() {
+            if (!s.uid)        { showToast('Please log in first'); return; }
+            if (!_gpAvailable) { showToast('⚠️ Restore is only available inside the Play Store app.'); return; }
+            showToast('Checking Google Play purchases…');
+            try {
+                const purchases = await gpListPurchases();
+                console.log('[GP] Restore found:', purchases ? purchases.length : 0);
+                if (!purchases || !purchases.length) { showToast('No active subscriptions found on this Google account.'); return; }
+                let restored = false;
+                for (const p of purchases) {
+                    const id = p.itemId || p.productId || p.sku;
+                    if (p.purchaseState === 'pending') { showToast('⏳ Subscription payment pending.'); continue; }
+                    if (id && GP_PRODUCTS[id]) {
+                        const ok = await gpVerifyAndActivate(s.uid, p);
+                        if (ok) restored = true;
+                    }
+                }
+                if (restored) { showToast('✅ Subscription Restored!'); setTimeout(() => location.reload(), 1500); }
+                else { showToast('No valid subscription found. If purchased recently, try again in a few minutes.'); }
+            } catch(e) { console.error('[GP] Restore error:', e); showToast('Restore failed: ' + (e.message || 'Unknown error')); }
+        }
+
+        // ── Main purchase entrypoint ──────────────────────────────────────
+        async function gpInitiatePurchase(productId) {
+            if (!s.uid)        { showToast('Please log in first'); return; }
+            const meta = GP_PRODUCTS[productId];
+            if (!meta)         { showToast('Unknown product: ' + productId); return; }
+            if (!_gpAvailable) { showToast('⚠️ Google Play Billing is only available in the Play Store app.'); return; }
+            console.log('[GP] Purchase — Tier:', _gpTier, ' Product:', productId);
+            showToast('Opening Google Play…');
+            try {
+                if (_gpTier === 1) {
+                    const r = await gpPurchaseViaBridge(productId);
+                    if (r.error === 'cancelled')    { showToast('Purchase cancelled.'); return; }
+                    if (r.error === 'already_owned') { showToast('Already subscribed! Restoring…'); await gpRestorePurchases(); return; }
+                    if (!r.ok || !r.purchaseToken)  { showToast('❌ Purchase failed (code ' + (r.code||'?')+'). Try again.'); return; }
+                    const ok = await gpVerifyAndActivate(s.uid, { itemId: r.itemId, purchaseToken: r.purchaseToken, purchaseTime: r.purchaseTime });
+                    if (ok) { showToast('🎉 Premium Activated!'); promo.stop(); setTimeout(() => location.reload(), 1500); }
+                    else    { showToast('❌ Verification failed. Tap Restore or contact support.'); }
                     return;
                 }
-
-                // Extract token from response
-                const purchaseToken = response.details?.purchaseToken || response.details?.token;
-                const purchaseTime  = response.details?.purchaseTime  || Date.now();
-
-                if (!purchaseToken) {
-                    await response.complete('fail');
-                    showToast("Purchase verification failed. Contact support.");
+                if (_gpTier === 2) {
+                    const { response, token, time } = await gpPurchaseViaDigitalGoods(productId, meta);
+                    const ok = await gpVerifyAndActivate(s.uid, { itemId: productId, purchaseToken: token, purchaseTime: time });
+                    if (ok) { await response.complete('success'); showToast('🎉 Premium Activated!'); promo.stop(); setTimeout(() => location.reload(), 1500); }
+                    else    { await response.complete('fail');    showToast('❌ Verification failed. Tap Restore or contact support.'); }
                     return;
                 }
-
-                // Verify & save to Firebase
-                const ok = await gpVerifyAndActivate(s.uid, {
-                    itemId:        productId,
-                    purchaseToken: purchaseToken,
-                    purchaseTime:  purchaseTime
-                });
-
-                if (ok) {
-                    await response.complete('success');
-                    showToast("🎉 Premium Activated via Google Play!");
-                    promo.stop();
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    await response.complete('fail');
-                    showToast("Verification failed. Please restore purchases or contact support.");
-                }
-
-            } catch (e) {
-                if (e.name === 'AbortError') {
-                    showToast("Purchase cancelled");
-                } else {
-                    showToast("Purchase error: " + (e.message || 'Unknown error'));
-                }
+            } catch(e) {
+                console.error('[GP] Purchase error:', e.name, e.message);
+                const MSGS = {
+                    AbortError:              'Purchase cancelled.',
+                    NotSupportedError:       '⚠️ Google Play unavailable. Sign into the Play Store and try again.',
+                    InvalidStateError:       '⚠️ Payment already in progress. Please wait.',
+                    NetworkError:            '⚠️ Network error. Check your connection.',
+                    BillingUnavailableError: '⚠️ Google Play Billing unavailable on this device.',
+                    ItemAlreadyOwnedError:   'Already subscribed! Tap Restore Purchases.'
+                };
+                showToast(MSGS[e.name] || ('Purchase error: ' + (e.message || 'Unknown error')));
             }
         }
 
-        // ── paymentSystem object (unified interface, unchanged API) ───
+        // ── paymentSystem — unified interface ─────────────────────────────
         const paymentSystem = {
             init: async () => {
-                const source = await detectInstallSource();
-                if (source === 'play') {
-                    const billingReady = await initGooglePlayBilling();
-                    if (billingReady) {
-                        paymentSystem.switchTo('googleplay');
-                        // Check / sync subscription status on launch
-                        if (s.uid) gpCheckSubscriptionStatus(s.uid);
-                        return;
-                    }
+                console.log('[GP] paymentSystem.init()');
+                const playAvail = await gpDetectEnvironment();
+                if (playAvail) {
+                    paymentSystem.switchTo('googleplay');
+                    if (s.uid) { gpCheckSubscriptionStatus(s.uid); gpSilentRestoreOnLaunch(); }
+                } else {
+                    paymentSystem.switchTo('custom');
                 }
-                // Default: show custom payment gateways
-                paymentSystem.switchTo('custom');
             },
             switchTo: (system) => {
                 currentPaymentSystem = system;
-                const switchEl = document.getElementById('payment-switch');
-                if (switchEl) {
-                    switchEl.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-                    if (system === 'custom') {
-                        const firstBtn = switchEl.querySelector('button:first-child');
-                        if (firstBtn) firstBtn.classList.add('active');
-                    } else {
-                        const lastBtn = switchEl.querySelector('button:last-child');
-                        if (lastBtn) lastBtn.classList.add('active');
-                    }
+                const sw = document.getElementById('payment-switch');
+                if (sw) {
+                    sw.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    const btn = sw.querySelector(system === 'custom' ? 'button:first-child' : 'button:last-child');
+                    if (btn) btn.classList.add('active');
                 }
-                const rzp      = document.getElementById('razorpay-btn');
-                const ppl      = document.getElementById('paypal-btn');
-                const bnb      = document.getElementById('binance-btn');
-                const gplay    = document.getElementById('googleplay-btn');
-                const restoreBtn = document.getElementById('gp-restore-btn');
-
+                const show = (id, vis) => { const el = document.getElementById(id); if (el) el.style.display = vis; };
                 if (system === 'googleplay') {
-                    if (rzp)   rzp.style.display   = 'none';
-                    if (ppl)   ppl.style.display   = 'none';
-                    if (bnb)   bnb.style.display   = 'none';
-                    if (gplay) gplay.style.display = 'flex';
-                    if (restoreBtn) restoreBtn.style.display = 'flex';
+                    show('razorpay-btn','none'); show('paypal-btn','none'); show('binance-btn','none');
+                    show('googleplay-btn','flex'); show('gp-restore-btn','flex');
                 } else {
-                    if (rzp)   rzp.style.display   = 'flex';
-                    if (ppl)   ppl.style.display   = 'flex';
-                    if (bnb)   bnb.style.display   = 'flex';
-                    if (gplay) gplay.style.display = 'none';
-                    if (restoreBtn) restoreBtn.style.display = 'none';
+                    show('razorpay-btn','flex'); show('paypal-btn','flex'); show('binance-btn','flex');
+                    show('googleplay-btn','none'); show('gp-restore-btn','none');
                 }
             },
-            googlePlayPurchase: async (plan) => {
-                const productId = GP_PLAN_MAP[plan] || 'premium_monthly';
-                await gpInitiatePurchase(productId);
-            },
-            restorePurchases: async () => {
-                await gpRestorePurchases();
-            }
+            googlePlayPurchase: async (plan) => { await gpInitiatePurchase(GP_PLAN_MAP[plan] || 'premium_monthly'); },
+            restorePurchases:   async ()     => { await gpRestorePurchases(); }
         };
 
+        // ── Periodic server expiry check (every 5 min) ───────────────────
+        setInterval(() => {
+            if (s.uid) {
+                db.ref(`u/${s.uid}/subExp`).once('value', (snap) => {
+                    const exp = snap.val();
+                    if (exp) s.sub = exp;
+                    checkPremiumAccess();
+                    if (!isPremium()) gpCheckSubscriptionStatus(s.uid);
+                });
+            }
+        }, 5 * 60 * 1000);
+
+        // Price Config
         // Price Config
         let priceConfig = {
             razorpay: { monthly: 5, sixmonths: 20, yearly: 50 },

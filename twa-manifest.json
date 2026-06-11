@@ -1,0 +1,55 @@
+{
+  "packageId": "com.nitaistudio.dutytrackerpro",
+  "host": "REPLACE_WITH_YOUR_DOMAIN.com",
+  "name": "Duty Tracker Pro",
+  "launcherName": "DutyTracker",
+  "display": "standalone",
+  "themeColor": "#050505",
+  "navigationColor": "#050505",
+  "navigationColorDark": "#050505",
+  "navigationDividerColor": "#050505",
+  "navigationDividerColorDark": "#050505",
+  "backgroundColor": "#050505",
+  "enableNotifications": true,
+  "startUrl": "/index.html",
+  "iconUrl": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+  "maskableIconUrl": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+  "monochromeIconUrl": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+  "manifest": "/manifest.json",
+  "useCredentialManagerForDigitalAssetLinks": false,
+  "fullScopeUrl": "https://REPLACE_WITH_YOUR_DOMAIN.com/",
+  "minSdkVersion": 21,
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "signingMode": "none",
+  "generatorApp": "PWABuilder",
+  "webManifestUrl": "https://REPLACE_WITH_YOUR_DOMAIN.com/manifest.json",
+  "shortcuts": [],
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "enableSiteSettingsShortcut": true,
+  "useBrowserOnChromeOS": false,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    },
+    "playBilling": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableCrashReporting": false,
+  "isSideloadedApk": false,
+  "categories": [
+    "PRODUCTIVITY",
+    "BUSINESS"
+  ],
+  "shareTarget": null,
+  "shortcuts": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}
