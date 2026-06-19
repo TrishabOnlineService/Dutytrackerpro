@@ -1,11 +1,24 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "io.github.nitaistudio.twa",
       "sha256_cert_fingerprints": [
-        "C9:2D:CB:BC:08:93:61:C7:DB:DB:5D:96:EE:09:28:0A:39:C9:88:D1:9A:9F:C2:23:0B:30:85:16:92:50:95:20",
+        "C9:2D:CB:BC:08:93:61:C7:DB:DB:5D:96:EE:09:28:0A:39:C9:88:D1:9A:9F:C2:23:0B:30:85:16:92:50:95:20"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.nitaistudio.twa",
+      "sha256_cert_fingerprints": [
         "3A:6F:0C:70:B4:0E:D9:DD:CD:40:DC:69:EB:11:95:E2:BA:9E:51:8E:46:C4:D0:EC:32:61:A3:BF:52:79:5A:82"
       ]
     }
