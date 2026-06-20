@@ -1261,9 +1261,93 @@
         })();
     </script>
     <script>
-        // Monetag ads — শুধু non-premium users এর জন্য
-        window.__adsLoaded = false;
+        // ================================================================
+        // AD MANAGER — Premium-aware Monetag controller
+        // ================================================================
+        // Single source of truth for all ad enable/disable decisions.
+        // Premium (Google Play subscription active OR Firebase premium
+        // flag true OR expiryDate in the future) => ads are blocked,
+        // any already-injected Monetag scripts/elements are torn down,
+        // and ad placeholders are hidden.
+        // Non-premium / expired => Monetag loads normally.
+        // ================================================================
+        window.__adsLoaded = false;   // true once Monetag scripts have been injected
+        window.__adsBlocked = false;  // true while premium is active — hard guard
+
+        // Hostnames used by the Monetag network. Used to find + strip
+        // any scripts/elements Monetag may have injected into the DOM.
+        const MONETAG_HOSTS = ['5gvci.com', 'nap5k.com', 'n6wxm.com'];
+
+        function isMonetagNode(node) {
+            if (!node) return false;
+            const src = node.src || (node.dataset && node.dataset.src) || '';
+            if (src && MONETAG_HOSTS.some(h => src.indexOf(h) !== -1)) return true;
+            // Monetag also injects iframes/divs with these zone ids
+            if (node.dataset && (node.dataset.zone === '11128287' || node.dataset.zone === '11128288')) return true;
+            return false;
+        }
+
+        // Remove any Monetag <script> tags already injected into the page.
+        function removeMonetagScripts() {
+            document.querySelectorAll('script').forEach(node => {
+                if (isMonetagNode(node)) node.remove();
+            });
+        }
+
+        // Remove any containers/iframes/popunder elements Monetag created
+        // at runtime (vignette overlays, in-page-push containers, etc).
+        function removeMonetagContainers() {
+            document.querySelectorAll('iframe, div').forEach(node => {
+                const src = node.src || '';
+                const id = node.id || '';
+                const cls = node.className && node.className.toString ? node.className.toString() : '';
+                if (
+                    (src && MONETAG_HOSTS.some(h => src.indexOf(h) !== -1)) ||
+                    /monetag|adsbygoogle|in-page-push|vignette-banner|propeller|popunder/i.test(id) ||
+                    /monetag|adsbygoogle|in-page-push|vignette-banner|propeller|popunder/i.test(cls)
+                ) {
+                    node.remove();
+                }
+            });
+        }
+
+        // Hide any ad placeholder elements present in the markup.
+        function hideAdPlaceholders() {
+            document.querySelectorAll('.ad-placeholder, .ad-container, [data-ad-slot]').forEach(el => {
+                el.style.display = 'none';
+            });
+        }
+        function showAdPlaceholders() {
+            document.querySelectorAll('.ad-placeholder, .ad-container, [data-ad-slot]').forEach(el => {
+                el.style.display = '';
+            });
+        }
+
+        // Tear down everything Monetag-related and lock out future loads.
+        function blockMonetag() {
+            window.__adsBlocked = true;
+            window.__adsLoaded = false;
+            removeMonetagScripts();
+            removeMonetagContainers();
+        }
+
+        // Master "kill all ads" switch — covers Monetag (banner,
+        // interstitial, rewarded, popunder, vignette — Monetag serves
+        // all of these formats through the same tags) plus placeholders.
+        function disableAllAds() {
+            blockMonetag();
+            hideAdPlaceholders();
+        }
+
+        // Re-enable ads for non-premium / expired users.
+        function enableAds() {
+            window.__adsBlocked = false;
+            showAdPlaceholders();
+            loadMonetag();
+        }
+
         function loadMonetag() {
+            if (window.__adsBlocked) return;     // premium guard — never load while premium
             if (window.__adsLoaded) return;
             window.__adsLoaded = true;
             var s1 = document.createElement('script');
@@ -1276,17 +1360,37 @@
             (function(s){s.dataset.zone='11128288';s.src='https://n6wxm.com/vignette.min.js';})
             ([document.documentElement,document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
         }
+
+        // Central policy function — call this any time premium status is
+        // known/changes (startup, login, after purchase, after restore,
+        // periodic expiry check). Decides ads on/off based on:
+        //   1. Google Play subscription status
+        //   2. Firebase premium flag
+        //   3. Subscription expiry date
+        function applyAdPolicy(opts) {
+            opts = opts || {};
+            const premium = !!opts.premium;
+            if (premium) {
+                disableAllAds();
+            } else {
+                enableAds();
+            }
+        }
+
+        // Fast-path check on cold start using cached localStorage expiry,
+        // before Firebase/Google Play have had a chance to confirm.
+        // Still funnels through applyAdPolicy so the guard/state stays
+        // consistent once real status arrives later.
         function initAds() {
             try {
                 var subExp = 0;
                 try { subExp = parseInt(localStorage.getItem('subExp') || '0'); } catch(e) {}
-                if (!subExp || subExp <= Date.now()) {
-                    loadMonetag();
-                }
+                applyAdPolicy({ premium: !!subExp && subExp > Date.now() });
             } catch(e) {
-                loadMonetag();
+                applyAdPolicy({ premium: false });
             }
         }
+        initAds();
     </script>
 </head>
 <body>
@@ -3024,6 +3128,11 @@
                     if(expEl) expEl.innerText = `Valid till: ${exD.toLocaleDateString()} (${daysLeft} Days)`;
                 }
             }
+            // Single source of truth for ad state — runs on every premium
+            // check: startup, login, after purchase, after restore, and
+            // the periodic expiry sweep. Premium => ads torn down +
+            // blocked; expired/non-premium => Monetag (re)loads.
+            applyAdPolicy({ premium: premium });
         }
 
         function loadAppConfig() {
@@ -3245,18 +3354,17 @@
                     cal.render(); advance.renderList(); graph.updateTodayText(); updateStreakUI();
                     const hl = document.getElementById('hist-list'); hl.innerHTML = ''; const hArr = []; for(let k in s.history) hArr.push(s.history[k]); hArr.reverse(); if(hArr.length === 0) hl.innerHTML = '<div style="text-align:center;color:var(--text-sub);">No payment history found.</div>'; hArr.forEach(h => { hl.innerHTML += `<div class="hist-item"><div><div style="font-weight:bold;">Premium Subscription</div><div class="hist-date">${new Date(h.date).toLocaleString()}</div><div class="hist-date">Via ${h.method}</div></div><div class="hist-amt">${h.currency === 'USD' ? '$' : '₹'}${h.amount}</div></div>`; });
                     // Real-time subscription sync from Firebase (prevents localStorage bypass)
+                    // Also serves as the "Firebase premium status" check (requirement #2),
+                    // independent of the Google Play subExp node.
                     db.ref(`users/${id}/subscription`).on('value', (subSnap) => {
                         const sub = subSnap.val();
                         if (sub && sub.expiryDate) {
                             s.sub = sub.active && sub.expiryDate > Date.now() ? sub.expiryDate : Date.now() - 1;
                         }
+                        // checkPremiumAccess() re-derives premium status and calls
+                        // applyAdPolicy() — single source of truth for ad on/off,
+                        // including full teardown of Monetag when premium is active.
                         checkPremiumAccess();
-                        // Premium হলে ads বন্ধ, না হলে চালু
-                        if (!isPremium()) {
-                            loadMonetag();
-                        } else {
-                            window.__adsLoaded = false; // reset so if sub expires ads can reload
-                        }
                     });
                     checkPremiumAccess();
                     if(document.getElementById('promo-screen').style.display !== 'flex' && document.getElementById('reward-popup').style.display !== 'flex' && s.pin && !pinVerified) { setTimeout(() => { document.getElementById('main-app').style.display = 'none'; pin.init('verify'); }, 500); } else if(!s.pin) { document.getElementById('main-app').style.display = 'flex'; }
@@ -4817,26 +4925,32 @@
     </script>
     <script>
         // Firebase থেকে real-time premium status verify করে ads load করা হয়
+        // Backstop check — confirms Google Play subscription expiry (subExp)
+        // 3s after load in case checkPremiumAccess() hasn't run yet (e.g.
+        // slow auth). Always funnels through applyAdPolicy(), never calls
+        // loadMonetag() directly, so premium users can never have ads
+        // re-injected by this path.
         (function() {
             function runAdsCheck() {
                 // s.uid available মানে Firebase auth হয়েছে
                 if (typeof s !== 'undefined' && s.uid && typeof db !== 'undefined') {
                     db.ref('u/' + s.uid + '/subExp').once('value', function(snap) {
                         var serverExp = snap.val();
-                        var premiumActive = serverExp && serverExp > Date.now();
+                        var premiumActive = !!(serverExp && serverExp > Date.now());
+                        // Also respect any premium status already established
+                        // elsewhere (Firebase users/{id}/subscription node, etc).
+                        if (typeof isPremium === 'function' && isPremium()) premiumActive = true;
                         if (premiumActive) {
                             // Premium user — subExp localStorage এ cache করো (fast path next load)
-                            try { localStorage.setItem('subExp', serverExp); } catch(e) {}
-                            // Ads চলবে না
+                            try { localStorage.setItem('subExp', serverExp || s.sub); } catch(e) {}
                         } else {
-                            // Non-premium — ads load করো
                             try { localStorage.removeItem('subExp'); } catch(e) {}
-                            loadMonetag();
                         }
+                        applyAdPolicy({ premium: premiumActive });
                     });
                 } else {
                     // Auth হয়নি বা guest — ads চলবে
-                    loadMonetag();
+                    applyAdPolicy({ premium: false });
                 }
             }
             // DOM ready হওয়ার পর 3 সেকেন্ড অপেক্ষা করো Firebase auth settle হতে
