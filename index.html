@@ -2393,8 +2393,18 @@
                     await db.ref(`u/${uid}/subExp`).set(sub.expiryDate);
                     console.log('[GP] Expired — locked');
                 } else if (sub.active && sub.expiryDate > now) {
-                    await db.ref(`u/${uid}/subExp`).set(sub.expiryDate);
-                    console.log('[GP] Valid until:', new Date(sub.expiryDate).toLocaleDateString());
+                    // Don't resurrect premium if an admin explicitly expired this
+                    // user (subExp = 0) — self-heal the stale GP record instead.
+                    const expSnap = await db.ref(`u/${uid}/subExp`).once('value');
+                    const adminExp = expSnap.val() || 0;
+                    if (adminExp === 0) {
+                        await db.ref(`users/${uid}/subscription/active`).set(false);
+                        await db.ref(`users/${uid}/subscription/expiryDate`).set(0);
+                        console.log('[GP] Admin-expired — stale GP record cleared');
+                    } else {
+                        await db.ref(`u/${uid}/subExp`).set(sub.expiryDate);
+                        console.log('[GP] Valid until:', new Date(sub.expiryDate).toLocaleDateString());
+                    }
                 }
             } catch(e) { console.warn('[GP] Status check:', e.message); }
         }
@@ -2995,15 +3005,41 @@
                     // Real-time subscription sync from Firebase (prevents localStorage bypass)
                     // Also serves as the "Firebase premium status" check (requirement #2),
                     // independent of the Google Play subExp node.
+                    // IMPORTANT: u/{uid}/subExp is the admin-controlled override (e.g. the
+                    // "Expire" button in the admin panel). The Google Play subscription
+                    // record can be stale (admin only clears subExp, not this node, on
+                    // older fixes), so we never let a stale GP record resurrect premium
+                    // after an explicit admin expire. We take whichever expiry is EARLIER
+                    // (more restrictive) between subExp and the GP record.
+                    // Real-time subscription sync from Firebase (prevents localStorage bypass)
+                    // Also serves as the "Firebase premium status" check (requirement #2),
+                    // independent of the Google Play subExp node.
+                    // IMPORTANT: u/{uid}/subExp is the admin-controlled value (e.g. the
+                    // "Expire" button in the admin panel). A Google Play subscription
+                    // record can still look active even after an admin expires the user
+                    // (older data, or any path that doesn't clear it), so this listener
+                    // must never let a stale GP record resurrect premium after an
+                    // explicit admin expire. We always re-check subExp before trusting
+                    // the GP record, and self-heal the GP record if it's stale.
                     db.ref(`users/${id}/subscription`).on('value', (subSnap) => {
                         const sub = subSnap.val();
-                        if (sub && sub.expiryDate) {
-                            s.sub = sub.active && sub.expiryDate > Date.now() ? sub.expiryDate : Date.now() - 1;
-                        }
-                        // checkPremiumAccess() re-derives premium status and calls
-                        // applyAdPolicy() — single source of truth for ad on/off,
-                        // including full teardown of Monetag when premium is active.
-                        checkPremiumAccess();
+                        if (!sub || !sub.expiryDate) { checkPremiumAccess(); return; }
+                        db.ref(`u/${id}/subExp`).once('value', (expSnap) => {
+                            const adminExp = expSnap.val() || 0;
+                            const gpLooksActive = sub.active && sub.expiryDate > Date.now();
+                            if (adminExp === 0 && sub.active) {
+                                // Admin expired this user but the GP record is stale — fix it.
+                                s.sub = 0;
+                                db.ref(`users/${id}/subscription/active`).set(false);
+                                db.ref(`users/${id}/subscription/expiryDate`).set(0);
+                            } else {
+                                s.sub = gpLooksActive ? sub.expiryDate : Date.now() - 1;
+                            }
+                            // checkPremiumAccess() re-derives premium status and calls
+                            // applyAdPolicy() — single source of truth for ad on/off,
+                            // including full teardown of Monetag when premium is active.
+                            checkPremiumAccess();
+                        });
                     });
                     checkPremiumAccess();
                     if(document.getElementById('promo-screen').style.display !== 'flex' && document.getElementById('reward-popup').style.display !== 'flex' && s.pin && !pinVerified) { setTimeout(() => { document.getElementById('main-app').style.display = 'none'; pin.init('verify'); }, 500); } else if(!s.pin) { document.getElementById('main-app').style.display = 'flex'; }
