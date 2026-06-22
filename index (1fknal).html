@@ -791,6 +791,11 @@
             border-top: 1px solid var(--border);
             padding-top: 20px;
         }
+        .payment-title {
+            font-size: 14px;
+            color: var(--text-sub);
+            margin-bottom: 12px;
+        }
         .gateway-buttons {
             display: flex;
             flex-direction: column;
@@ -817,6 +822,28 @@
             font-size: 13px;
             cursor: pointer;
             text-decoration: underline;
+        }
+        .payment-switch {
+            margin: 15px 0;
+            padding: 10px;
+            background: var(--input);
+            border-radius: 50px;
+            display: flex;
+            gap: 10px;
+        }
+        .payment-switch button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 40px;
+            background: transparent;
+            color: var(--text-sub);
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .payment-switch button.active {
+            background: var(--primary);
+            color: white;
         }
 
         /* MAIN APP */
@@ -1496,6 +1523,12 @@
             <h2 class="promo-title">Unlock Premium Power</h2>
             <p class="promo-sub">PDF Reports • Salary Calculator • Advance Tracking • Graphs & More</p>
             
+            <!-- Payment Gateway Switch -->
+            <div class="payment-switch" id="payment-switch">
+                <button class="active" onclick="paymentSystem.switchTo('custom')">Custom Payments</button>
+                <button onclick="paymentSystem.switchTo('googleplay')">Google Play Billing</button>
+            </div>
+            
             <div class="plan-cards" id="plan-cards">
                 <div class="plan-card selected" data-plan="monthly" data-days="30" data-inr="5" data-usd="0.06">
                     <div class="plan-name">Monthly</div>
@@ -1515,16 +1548,17 @@
             </div>
             
             <button class="btn-activate" id="activate-premium-btn" onclick="promo.showPaymentGateways()">
-                <i class="fas fa-crown"></i> Subscribe with Google Play
+                <i class="fas fa-crown"></i> Activate Premium
             </button>
             
             <div class="payment-gateways" id="payment-gateways" style="display:none;">
+                <div class="payment-title">Choose Payment Method</div>
                 <div class="gateway-buttons" id="gateway-buttons">
                     <button class="gateway-btn googleplay" id="googleplay-btn">
-                        <i class="fab fa-google-play"></i> Subscribe Now
+                        <i class="fab fa-google-play"></i> Google Play Billing
                     </button>
                     <button class="gateway-btn" id="gp-restore-btn" style="display:none; background:rgba(61,220,132,0.15); border:1px solid var(--play-green); color:var(--play-green);" onclick="paymentSystem.restorePurchases()">
-                        <i class="fas fa-sync-alt"></i> Restore Purchases
+                        <i class="fas fa-sync-alt"></i> Restore Google Play Purchases
                     </button>
                 </div>
             </div>
