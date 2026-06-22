@@ -22,19 +22,86 @@
     <meta name="google-play-app" content="com.nitaistudio.dutytrackerpro">
     <meta name="web-app" content="io.github.nitaistudio.twa">
 
+    <!-- ============================================
+         EARLY CRASH-PROTECTION BOOTSTRAP
+         Must load before any other script so it can
+         catch failures anywhere during startup
+         (Firebase, Chart.js, jsPDF, OneSignal, app code)
+         and guarantee the splash screen never gets stuck. -->
+    <script>
+        console.log("App Starting...");
+        window.__dtBoot = { resolved: false };
+
+        function showFallback() {
+            document.body.innerHTML = '<div style="padding:30px;color:#fff;text-align:center;background:#000;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;"><h2>Duty Tracker Pro</h2><p>Startup Error Detected</p><button onclick="location.reload()" style="margin-top:18px;padding:12px 28px;border:none;border-radius:8px;background:#4361ee;color:#fff;font-size:15px;">Reload App</button></div>';
+        }
+
+        // Single, idempotent recovery path. Safe to call multiple times
+        // (from window.onerror, unhandledrejection, or the watchdog timer) —
+        // only the first call actually does anything.
+        function dtRecoverToSafeScreen(reason) {
+            if (window.__dtBoot.resolved) return;
+            window.__dtBoot.resolved = true;
+            console.warn("Recovery triggered:", reason);
+            try {
+                const splash = document.getElementById("splash");
+                if (splash) splash.style.display = "none";
+                const maint = document.getElementById("maintenance-mode");
+                if (maint) maint.style.display = "none";
+                const lang = document.getElementById("lang-screen");
+                if (lang) lang.style.display = "none";
+                const onbScreen = document.getElementById("onboarding-screen");
+                if (onbScreen) onbScreen.style.display = "none";
+
+                const auth = document.getElementById("auth-screen");
+                const mainApp = document.getElementById("main-app");
+
+                if (auth) {
+                    console.log("Auth Loading...");
+                    auth.style.display = "flex";
+                } else if (mainApp) {
+                    console.log("Main App Loading...");
+                    mainApp.style.display = "flex";
+                } else {
+                    showFallback();
+                }
+            } catch (e) {
+                console.error("Recovery failed:", e);
+                showFallback();
+            }
+        }
+
+        window.onerror = function (message, source, lineno, colno, error) {
+            console.error("App Error:", message, source, lineno);
+            dtRecoverToSafeScreen("window.onerror");
+            return false;
+        };
+
+        window.addEventListener("unhandledrejection", function (event) {
+            console.error("Unhandled Promise Rejection:", event.reason);
+            dtRecoverToSafeScreen("unhandledrejection");
+        });
+
+        // Guaranteed watchdog: no matter what happens with Firebase, network,
+        // or any third-party library, the splash screen can never get stuck
+        // forever. This fires independently of the normal startup flow.
+        setTimeout(function () { dtRecoverToSafeScreen("watchdog-timeout"); }, 5000);
+    </script>
+
     <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Libraries -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Libraries: each has an onerror logger so a failed/blocked CDN
+         never silently breaks the rest of the app -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onerror="console.error('Failed to load: firebase-app-compat.js')"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js" onerror="console.error('Failed to load: firebase-database-compat.js')"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="console.error('Failed to load: jspdf')"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js" onerror="console.error('Failed to load: jspdf-autotable')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="console.error('Failed to load: chart.js')"></script>
     
     <!-- OneSignal SDK -->
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer onerror="console.error('Failed to load: OneSignal SDK')"></script>
 
     <style>
         :root {
@@ -2547,8 +2614,32 @@
             appId: "1:716525293622:web:880f39084c86180fbb0897" 
         };
         
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        console.log("Firebase Loading...");
+        let db;
+        try {
+            if (typeof firebase === "undefined") {
+                throw new Error("Firebase SDK did not load (blocked network or CDN failure)");
+            }
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            console.log("Firebase Initialized Successfully");
+        } catch (fbErr) {
+            console.error("Firebase Init Error:", fbErr);
+            // Safe no-op stand-in so every later db.ref(...) call in the app
+            // (hundreds of them) degrades gracefully instead of throwing
+            // "Cannot read properties of undefined" and freezing the UI.
+            const noopRef = {
+                on: () => noopRef,
+                off: () => {},
+                once: (evt, cb) => { if (typeof cb === "function") cb({ val: () => null }); return Promise.resolve({ val: () => null }); },
+                set: () => Promise.resolve(),
+                update: () => Promise.resolve(),
+                remove: () => Promise.resolve(),
+                push: () => ({ key: null })
+            };
+            db = { ref: () => noopRef };
+            dtRecoverToSafeScreen("firebase-init-failed");
+        }
         const IMG_API_KEY = "c762b5315ee9263c36ed04156b0ff758"; 
         const ONESIGNAL_APP_ID = "757c2d8a-b121-4498-bc66-5d71d68a9009";
         
@@ -2820,14 +2911,27 @@
         }
 
         function loadAppConfig() {
-            db.ref('config/maintenance').on('value', (snap) => { appConfig.maintenance = snap.val() || false; updateMaintenanceUI(); });
-            db.ref('config/maintenanceMessage').on('value', (snap) => { appConfig.maintenanceMessage = snap.val() || "We're currently performing scheduled maintenance..."; document.getElementById('maintenance-message').innerText = appConfig.maintenanceMessage; });
-            db.ref('config/maintenanceTime').on('value', (snap) => { appConfig.maintenanceTime = snap.val() || "Approximately 30 minutes"; document.getElementById('maintenance-time').innerText = appConfig.maintenanceTime; });
-            db.ref('config/forcedUpdate').on('value', (snap) => { const updateConfig = snap.val(); if(updateConfig) appConfig.forcedUpdate = { ...appConfig.forcedUpdate, ...updateConfig }; if(s.uid) checkForcedUpdate(); });
-            db.ref('config/reward').on('value', (snap) => { appConfig.reward = { ...appConfig.reward, ...(snap.val() || {}) }; document.getElementById('reward-title').innerText = appConfig.reward.title; document.getElementById('reward-message').innerText = appConfig.reward.message; });
+            db.ref('config/maintenance').on('value', (snap) => { try { appConfig.maintenance = snap.val() || false; updateMaintenanceUI(); } catch(e) { console.error("config/maintenance handler failed:", e); } }, (err) => console.error("config/maintenance listener cancelled:", err));
+            db.ref('config/maintenanceMessage').on('value', (snap) => { try { appConfig.maintenanceMessage = snap.val() || "We're currently performing scheduled maintenance..."; const el = document.getElementById('maintenance-message'); if(el) el.innerText = appConfig.maintenanceMessage; } catch(e) { console.error("config/maintenanceMessage handler failed:", e); } });
+            db.ref('config/maintenanceTime').on('value', (snap) => { try { appConfig.maintenanceTime = snap.val() || "Approximately 30 minutes"; const el = document.getElementById('maintenance-time'); if(el) el.innerText = appConfig.maintenanceTime; } catch(e) { console.error("config/maintenanceTime handler failed:", e); } });
+            db.ref('config/forcedUpdate').on('value', (snap) => { try { const updateConfig = snap.val(); if(updateConfig) appConfig.forcedUpdate = { ...appConfig.forcedUpdate, ...updateConfig }; if(s.uid) checkForcedUpdate(); } catch(e) { console.error("config/forcedUpdate handler failed:", e); } });
+            db.ref('config/reward').on('value', (snap) => { try { appConfig.reward = { ...appConfig.reward, ...(snap.val() || {}) }; const t = document.getElementById('reward-title'); const m = document.getElementById('reward-message'); if(t) t.innerText = appConfig.reward.title; if(m) m.innerText = appConfig.reward.message; } catch(e) { console.error("config/reward handler failed:", e); } });
         }
 
-        function updateMaintenanceUI() { if(appConfig.maintenance) { document.getElementById('maintenance-mode').style.display = 'flex'; document.getElementById('main-app').style.display = 'none'; document.getElementById('auth-screen').style.display = 'none'; document.getElementById('splash').style.display = 'none'; } else { document.getElementById('maintenance-mode').style.display = 'none'; } }
+        function updateMaintenanceUI() {
+            const maintEl = document.getElementById('maintenance-mode');
+            const mainEl = document.getElementById('main-app');
+            const authEl = document.getElementById('auth-screen');
+            const splashEl = document.getElementById('splash');
+            if(appConfig.maintenance) {
+                if(maintEl) maintEl.style.display = 'flex';
+                if(mainEl) mainEl.style.display = 'none';
+                if(authEl) authEl.style.display = 'none';
+                if(splashEl) splashEl.style.display = 'none';
+            } else {
+                if(maintEl) maintEl.style.display = 'none';
+            }
+        }
 
         const pay = {
             show: () => { document.getElementById('pay-wall').style.display = 'flex'; }
@@ -2940,16 +3044,163 @@
             closePopup: () => { document.getElementById('reward-popup').style.display = 'none'; }
         };
 
+        // ====================================================
+        // ONBOARDING / LANGUAGE-SELECT CONTROLLER
+        // (Referenced by onclick="ob.*" in #lang-screen and
+        // #onboarding-screen — this object was completely
+        // missing from the script. Calling ob.showLang() for
+        // any first-time user threw "ob is not defined" right
+        // after the splash had already hidden itself, which is
+        // what produced the black screen. This is the fix.)
+        // ====================================================
+        const ob = {
+            selectedLang: 'en',
+            curSlide: 0,
+
+            showLang: () => {
+                const el = document.getElementById('lang-screen');
+                if (el) el.style.display = 'flex';
+            },
+
+            selectLang: (el, code) => {
+                ob.selectedLang = code;
+                document.querySelectorAll('.lang-item').forEach(item => item.classList.remove('selected'));
+                if (el) el.classList.add('selected');
+            },
+
+            langConfirm: () => {
+                try {
+                    if (typeof i18n !== 'undefined' && i18n && typeof i18n.changeLanguage === 'function') {
+                        i18n.changeLanguage(ob.selectedLang);
+                    }
+                } catch (e) {
+                    console.error("Language apply failed:", e);
+                }
+                const langEl = document.getElementById('lang-screen');
+                if (langEl) langEl.style.display = 'none';
+                const obEl = document.getElementById('onboarding-screen');
+                if (obEl) {
+                    obEl.style.display = 'block';
+                    ob.goToSlide(0);
+                } else {
+                    ob.finish();
+                }
+            },
+
+            goToSlide: (n) => {
+                document.querySelectorAll('.ob-slide').forEach((slide, i) => slide.classList.toggle('active', i === n));
+                document.querySelectorAll('.ob-dot').forEach((dot, i) => dot.classList.toggle('active', i === n));
+                ob.curSlide = n;
+            },
+
+            next: () => {
+                const slides = document.querySelectorAll('.ob-slide');
+                ob.goToSlide(Math.min(ob.curSlide + 1, Math.max(slides.length - 1, 0)));
+            },
+
+            skip: () => ob.finish(),
+
+            finish: () => {
+                try { localStorage.setItem('dt_onboarded', '1'); } catch (e) { console.error("Could not persist onboarding state:", e); }
+                const obEl = document.getElementById('onboarding-screen');
+                if (obEl) obEl.style.display = 'none';
+                const langEl = document.getElementById('lang-screen');
+                if (langEl) langEl.style.display = 'none';
+                console.log("Auth Loading...");
+                const authEl = document.getElementById('auth-screen');
+                if (authEl) authEl.style.display = 'flex';
+            }
+        };
+
+        // Safely advances past the splash screen to whichever screen the
+        // user should land on (returning user / onboarded user / first-time
+        // user). Wrapped in try/catch and guarded by window.__dtBoot so it
+        // can never run twice and can never leave the screen blank.
+        function proceedFromSplash() {
+            if (window.__dtBoot.resolved) return;
+            try {
+                const splash = document.getElementById('splash');
+                if (splash) splash.style.opacity = '0';
+                setTimeout(() => {
+                    if (window.__dtBoot.resolved) return;
+                    window.__dtBoot.resolved = true;
+                    try {
+                        if (splash) splash.style.display = 'none';
+                        const id = localStorage.getItem('dt_id');
+                        const onboarded = localStorage.getItem('dt_onboarded');
+                        if (id) {
+                            console.log("Main App Loading...");
+                            if (typeof app !== 'undefined' && app && typeof app.start === 'function') {
+                                app.start(id);
+                            } else {
+                                const authEl = document.getElementById('auth-screen');
+                                if (authEl) authEl.style.display = 'flex';
+                            }
+                        } else if (onboarded) {
+                            console.log("Auth Loading...");
+                            const authEl = document.getElementById('auth-screen');
+                            if (authEl) authEl.style.display = 'flex';
+                        } else if (typeof ob !== 'undefined' && ob && typeof ob.showLang === 'function') {
+                            ob.showLang();
+                        } else {
+                            const authEl = document.getElementById('auth-screen');
+                            if (authEl) authEl.style.display = 'flex';
+                        }
+                    } catch (e) {
+                        console.error("Post-splash navigation failed:", e);
+                        window.__dtBoot.resolved = false;
+                        dtRecoverToSafeScreen("post-splash-error");
+                    }
+                }, 800);
+            } catch (e) {
+                console.error("Splash fade failed:", e);
+                dtRecoverToSafeScreen("splash-fade-error");
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+          console.log("Splash Loaded");
+          try {
             const ccSelects = ['cc-login', 'cc-signup'];
-            ccSelects.forEach(selectId => { const ccSelect = document.getElementById(selectId); countries.forEach(c => { let o = document.createElement('option'); o.value = c.c; o.innerText = `${c.n} (${c.c})`; if(c.n === "India") o.selected = true; ccSelect.appendChild(o); }); });
+            ccSelects.forEach(selectId => { const ccSelect = document.getElementById(selectId); if (!ccSelect) return; countries.forEach(c => { let o = document.createElement('option'); o.value = c.c; o.innerText = `${c.n} (${c.c})`; if(c.n === "India") o.selected = true; ccSelect.appendChild(o); }); });
             history.replaceState({page: 'home'}, null, '');
             document.body.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');
             const vid = document.getElementById('promo-vid'); if(vid) vid.pause();
-            window.OneSignalDeferred = window.OneSignalDeferred || [];
-            OneSignalDeferred.push(async function(OneSignal) { await OneSignal.init({ appId: ONESIGNAL_APP_ID, allowLocalhostAsSecureOrigin: true, welcomeNotification: { disable: true } }); });
-            loadAppConfig();
-            db.ref('config/maintenance').on('value', (snap) => { appConfig.maintenance = snap.val() || false; if(appConfig.maintenance) { document.getElementById('maintenance-mode').style.display = 'flex'; document.getElementById('main-app').style.display = 'none'; document.getElementById('auth-screen').style.display = 'none'; document.getElementById('splash').style.display = 'none'; } else { document.getElementById('maintenance-mode').style.display = 'none'; setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => { document.getElementById('splash').style.display='none'; const id = localStorage.getItem('dt_id'); if(id) { app.start(id); } else if(localStorage.getItem('dt_onboarded')) { document.getElementById('auth-screen').style.display='flex'; } else { ob.showLang(); } }, 800); }, 2500); } });
+            try {
+                window.OneSignalDeferred = window.OneSignalDeferred || [];
+                OneSignalDeferred.push(async function(OneSignal) { try { await OneSignal.init({ appId: ONESIGNAL_APP_ID, allowLocalhostAsSecureOrigin: true, welcomeNotification: { disable: true } }); } catch (e) { console.error("OneSignal init failed:", e); } });
+            } catch (e) { console.error("OneSignal setup failed:", e); }
+
+            if (typeof loadAppConfig === "function") {
+                try { loadAppConfig(); } catch (e) { console.error("loadAppConfig failed:", e); }
+            }
+
+            db.ref('config/maintenance').on('value', (snap) => {
+                try {
+                    appConfig.maintenance = snap.val() || false;
+                    const maintEl = document.getElementById('maintenance-mode');
+                    const mainEl = document.getElementById('main-app');
+                    const authEl = document.getElementById('auth-screen');
+                    const splashEl = document.getElementById('splash');
+                    if (appConfig.maintenance) {
+                        if (maintEl) maintEl.style.display = 'flex';
+                        if (mainEl) mainEl.style.display = 'none';
+                        if (authEl) authEl.style.display = 'none';
+                        if (splashEl) splashEl.style.display = 'none';
+                        window.__dtBoot.resolved = true;
+                    } else {
+                        if (maintEl) maintEl.style.display = 'none';
+                        setTimeout(proceedFromSplash, 2500);
+                    }
+                } catch (e) {
+                    console.error("Maintenance listener error:", e);
+                    dtRecoverToSafeScreen("maintenance-listener-error");
+                }
+            }, (err) => {
+                console.error("Maintenance listener cancelled (permission/network):", err);
+                dtRecoverToSafeScreen("maintenance-listener-cancelled");
+            });
+
             const faqs = [
                 {q:"How to add a duty?", a:"Tap on 'Add Today's Duty' on the home screen, or tap any date on the calendar."},
                 {q:"How to delete an entry?", a:"Tap on the date you want to delete. In the modal that appears, click the Red 'Delete' button."},
@@ -2958,32 +3209,48 @@
                 {q:"How to get free premium?", a:"Join our Telegram and WhatsApp channels from the popup after login to get 7 days free premium!"}
             ];
             const fl = document.getElementById('faq-list');
-            faqs.forEach(f => { fl.innerHTML += `<div class="faq-item"><div class="faq-q" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display=='block'?'none':'block'">${f.q} <i class="fas fa-chevron-down"></i></div><div class="faq-a">${f.a}</div></div>`; });
-            document.getElementById('adv-date').value = new Date().toISOString().split('T')[0];
-            reminder.init();
-            
+            if (fl) faqs.forEach(f => { fl.innerHTML += `<div class="faq-item"><div class="faq-q" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display=='block'?'none':'block'">${f.q} <i class="fas fa-chevron-down"></i></div><div class="faq-a">${f.a}</div></div>`; });
+            const advDateEl = document.getElementById('adv-date');
+            if (advDateEl) advDateEl.value = new Date().toISOString().split('T')[0];
+            if (typeof reminder !== 'undefined' && reminder && typeof reminder.init === 'function') {
+                try { reminder.init(); } catch (e) { console.error("reminder.init failed:", e); }
+            }
+
             // Clear old API-based translation cache
             for(let k of Object.keys(localStorage)) {
                 if(k.startsWith('i18n_cache_')) localStorage.removeItem(k);
             }
             // Initialize i18n here (inside main DOMContentLoaded, after app loads)
-            setTimeout(() => i18n.init(), 600);
-            
+            setTimeout(() => {
+                try {
+                    if (typeof i18n !== 'undefined' && i18n && typeof i18n.init === 'function') i18n.init();
+                } catch (e) { console.error("i18n.init failed:", e); }
+            }, 600);
+
             // Android Back Button Handler
             document.addEventListener('backbutton', function(e) {
-                e.preventDefault();
-                if(document.getElementById('pin-screen').style.display === 'flex') {
-                    pin.cancel();
-                } else if(document.getElementById('promo-screen').style.display === 'flex') {
-                    promo.close();
-                } else if(document.getElementById('legal-modal').style.display === 'block') {
-                    ui.closeAll();
-                } else if(document.querySelector('.page[style*="display: flex"]')) {
-                    ui.closeAll();
-                } else {
-                    ui.closeAll();
-                }
+                try {
+                    e.preventDefault();
+                    const pinScreen = document.getElementById('pin-screen');
+                    const promoScreen = document.getElementById('promo-screen');
+                    const legalModal = document.getElementById('legal-modal');
+                    if(pinScreen && pinScreen.style.display === 'flex') {
+                        pin.cancel();
+                    } else if(promoScreen && promoScreen.style.display === 'flex') {
+                        promo.close();
+                    } else if(legalModal && legalModal.style.display === 'block') {
+                        ui.closeAll();
+                    } else if(document.querySelector('.page[style*="display: flex"]')) {
+                        ui.closeAll();
+                    } else {
+                        ui.closeAll();
+                    }
+                } catch (e) { console.error("backbutton handler failed:", e); }
             }, false);
+          } catch (e) {
+              console.error("DOMContentLoaded startup failed:", e);
+              dtRecoverToSafeScreen("dom-content-loaded-error");
+          }
         });
 
         window.onpopstate = function(event) {
@@ -2999,9 +3266,12 @@
         const app = {
             logout: () => { ui.confirm("Log Out", "Are you sure?", () => { localStorage.removeItem('dt_id'); location.reload(); }); },
             start: (id) => {
+                console.log("Main App Loading...");
                 s.uid = id;
-                document.getElementById('main-app').style.display = 'flex';
+                const mainAppEl = document.getElementById('main-app');
+                if (mainAppEl) mainAppEl.style.display = 'flex';
                 db.ref('u/'+id).on('value', sn => {
+                  try {
                     const v = sn.val() || {};
                     s.data = v.att || {};
                     s.adv = v.adv || {};
@@ -3026,13 +3296,22 @@
                     cal.render(); advance.renderList(); graph.updateTodayText(); updateStreakUI();
                     const hl = document.getElementById('hist-list'); hl.innerHTML = ''; const hArr = []; for(let k in s.history) hArr.push(s.history[k]); hArr.reverse(); if(hArr.length === 0) hl.innerHTML = '<div style="text-align:center;color:var(--text-sub);">No payment history found.</div>'; hArr.forEach(h => { hl.innerHTML += `<div class="hist-item"><div><div style="font-weight:bold;">Premium Subscription</div><div class="hist-date">${new Date(h.date).toLocaleString()}</div><div class="hist-date">Via ${h.method}</div></div><div class="hist-amt">${h.currency === 'USD' ? '$' : '₹'}${h.amount}</div></div>`; });
                     checkPremiumAccess();
-                    if(document.getElementById('promo-screen').style.display !== 'flex' && document.getElementById('reward-popup').style.display !== 'flex' && s.pin && !pinVerified) { setTimeout(() => { document.getElementById('main-app').style.display = 'none'; pin.init('verify'); }, 500); } else if(!s.pin) { document.getElementById('main-app').style.display = 'flex'; }
+                    const promoEl = document.getElementById('promo-screen');
+                    const rewardPopupEl = document.getElementById('reward-popup');
+                    if((!promoEl || promoEl.style.display !== 'flex') && (!rewardPopupEl || rewardPopupEl.style.display !== 'flex') && s.pin && !pinVerified) { setTimeout(() => { const m = document.getElementById('main-app'); if(m) m.style.display = 'none'; pin.init('verify'); }, 500); } else if(!s.pin) { const m = document.getElementById('main-app'); if(m) m.style.display = 'flex'; }
                     security.updateAutoLockUI();
                     reward.checkAndShow();
                     checkForcedUpdate();
                     listenForInAppNotifications();
                     trackUserActivity(id, 'app_open');
                     db.ref(`adminNotifications/${id}`).on('child_added', (snap) => { const notif = snap.val(); if(notif && notif.title) { if(Notification.permission === "granted") { new Notification(notif.title, { body: notif.body, icon: notif.icon || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" }); } showToast(notif.title + ": " + notif.body); if(notif.url) setTimeout(() => window.open(notif.url, '_blank'), 1000); db.ref(`adminNotifications/${id}/${snap.key}`).remove(); } });
+                  } catch (e) {
+                    console.error("app.start() data render failed:", e);
+                    dtRecoverToSafeScreen("app-start-render-error");
+                  }
+                }, (err) => {
+                    console.error("app.start() listener cancelled (permission/network):", err);
+                    dtRecoverToSafeScreen("app-start-listener-cancelled");
                 });
             }
         };
@@ -4568,7 +4847,15 @@
     </script>
     <script>
         // All features are free — always disable ads
-        setTimeout(function() { applyAdPolicy({ premium: true }); }, 3000);
+        setTimeout(function() {
+            try {
+                if (typeof applyAdPolicy === "function") {
+                    applyAdPolicy({ premium: true });
+                }
+            } catch (e) {
+                console.error("applyAdPolicy failed:", e);
+            }
+        }, 3000);
     </script>
 </body>
 </html>
