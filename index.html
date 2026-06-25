@@ -56,7 +56,22 @@
                 const auth = document.getElementById("auth-screen");
                 const mainApp = document.getElementById("main-app");
 
-                if (auth) {
+                // If user was already logged in, try to resume app instead of showing auth
+                const savedId = localStorage.getItem("dt_id");
+                if (savedId && typeof app !== "undefined" && app && typeof app.start === "function") {
+                    console.log("Resuming session for saved user...");
+                    try {
+                        app.start(savedId);
+                        return;
+                    } catch (resumeErr) {
+                        console.error("Resume failed, falling back:", resumeErr);
+                    }
+                }
+
+                if (savedId && mainApp) {
+                    console.log("Main App Loading (saved session)...");
+                    mainApp.style.display = "flex";
+                } else if (auth) {
                     console.log("Auth Loading...");
                     auth.style.display = "flex";
                 } else if (mainApp) {
@@ -85,7 +100,7 @@
         // Guaranteed watchdog: no matter what happens with Firebase, network,
         // or any third-party library, the splash screen can never get stuck
         // forever. This fires independently of the normal startup flow.
-        setTimeout(function () { dtRecoverToSafeScreen("watchdog-timeout"); }, 5000);
+        setTimeout(function () { dtRecoverToSafeScreen("watchdog-timeout"); }, 15000);
     </script>
 
     <!-- Fonts & Icons -->
