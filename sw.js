@@ -1,6 +1,6 @@
-const CACHE_NAME = 'duty-tracker-pro-v9';
-const STATIC_CACHE = 'dtp-static-v9';
-const DYNAMIC_CACHE = 'dtp-dynamic-v9';
+const CACHE_NAME = 'duty-tracker-pro-v10';
+const STATIC_CACHE = 'dtp-static-v10';
+const DYNAMIC_CACHE = 'dtp-dynamic-v10';
 
 const STATIC_ASSETS = [
   '/',
